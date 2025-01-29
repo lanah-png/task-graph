@@ -1,10 +1,12 @@
-import React, { useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useRef, useEffect, useState} from "react";
 import { ForceGraph2D } from "react-force-graph";
 
 // Define the ForceGraphMethods type since it's not exported directly
 interface ForceGraphMethods {
   centerAt: (x: number, y: number, duration?: number) => void;
   zoom: (zoom: number, duration?: number) => void;
+  d3Force: (forceName: string, force?: any) => any;
+  d3ReheatSimulation: () => void;
 }
 
 interface Node {
@@ -15,6 +17,7 @@ interface Node {
   x?: number;
   y?: number;
   z?: number;
+  selected?: boolean;
 }
 
 interface Link {
@@ -36,6 +39,7 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
   const fgRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = React.useState({ width: window.innerWidth, height: window.innerHeight });
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -55,6 +59,8 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
     const fg = fgRef.current;
     if (!fg) return;
 
+    setSelectedNodeId(node.id);
+
     // Get the current zoom level
     const distance = 40;
     const transitionDuration = 800;
@@ -70,7 +76,7 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
       
       // Zoom in
       setTimeout(() => {
-        fg.zoom(1.5, transitionDuration);
+        fg.zoom(2, transitionDuration);
       }, 50); // Small delay to ensure smooth transition
     };
 
@@ -81,8 +87,18 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
   const handleBackgroundClick = useCallback(() => {
     const fg = fgRef.current;
     if (!fg) return;
+    setSelectedNodeId(null);
+
+    // Reset zoom and center
+    fg.centerAt(0, 0, 1000);
+    fg.zoom(3, 1000);
+
+    // Reset forces to default values
+    fg.d3Force('charge')?.strength(-30);
+    fg.d3Force('link')?.distance(30);
     
-    fg.zoom(1, 1000);
+    // Reheat the simulation
+    fg.d3ReheatSimulation();
   }, []);
 
   return (
@@ -114,6 +130,19 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
             bckgDimensions[1]
           );
 
+            // Draw highlight if node is selected
+            if (node.id === selectedNodeId) {
+              ctx.strokeStyle = "#4f46e5"; // Indigo color for highlight
+              ctx.lineWidth = 3/globalScale;
+              ctx.strokeRect(
+                node.x! - bckgDimensions[0] / 2,
+                node.y! - bckgDimensions[1] / 2,
+                bckgDimensions[0],
+                bckgDimensions[1]
+              );
+            }
+
+          // Draws text
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = "#1a1a1a";
