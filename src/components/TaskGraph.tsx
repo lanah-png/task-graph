@@ -78,6 +78,13 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
     setTimeout(moveCamera, 0);
   }, []);
 
+  const handleBackgroundClick = useCallback(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    
+    fg.zoom(1, 1000);
+  }, []);
+
   return (
     <div ref={containerRef} className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100">
       <ForceGraph2D
@@ -85,6 +92,7 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
         graphData={data}
         width={dimensions.width}
         height={dimensions.height}
+        onBackgroundClick={handleBackgroundClick}
         nodeLabel="name"
         nodeColor={(node: Node) => node.color || "#6366f1"}
         linkColor={() => "#e2e8f0"}
