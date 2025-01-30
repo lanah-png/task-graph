@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useEffect, useState} from "react";
 import { ForceGraph2D } from "react-force-graph";
 
-// Define the ForceGraphMethods type since it's not exported directly
 interface ForceGraphMethods {
   centerAt: (x: number, y: number, duration?: number) => void;
   zoom: (zoom: number, duration?: number) => void;
@@ -18,6 +17,7 @@ interface Node {
   y?: number;
   z?: number;
   selected?: boolean;
+  description: string; // Made description required
 }
 
 interface Link {
@@ -35,11 +35,11 @@ interface TaskGraphProps {
 }
 
 const TaskGraph = ({ data }: TaskGraphProps) => {
-  // Update the ref type to include ForceGraphMethods
   const fgRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = React.useState({ width: window.innerWidth, height: window.innerHeight });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -60,6 +60,7 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
     if (!fg) return;
 
     setSelectedNodeId(node.id);
+    setSelectedNode(node);
 
     // Get the current zoom level
     const distance = 40;
@@ -77,10 +78,9 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
       // Zoom in
       setTimeout(() => {
         fg.zoom(2, transitionDuration);
-      }, 50); // Small delay to ensure smooth transition
+      }, 50);
     };
 
-    // Add a small delay to ensure node positions are calculated
     setTimeout(moveCamera, 0);
   }, []);
 
@@ -88,6 +88,7 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
     const fg = fgRef.current;
     if (!fg) return;
     setSelectedNodeId(null);
+    setSelectedNode(null);
 
     // Reset zoom and center
     fg.centerAt(0, 0, 1000);
@@ -102,9 +103,9 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
   }, []);
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100">
+    <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
       <ForceGraph2D
-        ref={fgRef}
+
         graphData={data}
         width={dimensions.width}
         height={dimensions.height}
@@ -130,19 +131,18 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
             bckgDimensions[1]
           );
 
-            // Draw highlight if node is selected
-            if (node.id === selectedNodeId) {
-              ctx.strokeStyle = "#4f46e5"; // Indigo color for highlight
-              ctx.lineWidth = 3/globalScale;
-              ctx.strokeRect(
-                node.x! - bckgDimensions[0] / 2,
-                node.y! - bckgDimensions[1] / 2,
-                bckgDimensions[0],
-                bckgDimensions[1]
-              );
-            }
+          // Draw highlight if node is selected
+          if (node.id === selectedNodeId) {
+            ctx.strokeStyle = "#4f46e5";
+            ctx.lineWidth = 3/globalScale;
+            ctx.strokeRect(
+              node.x! - bckgDimensions[0] / 2,
+              node.y! - bckgDimensions[1] / 2,
+              bckgDimensions[0],
+              bckgDimensions[1]
+            );
+          }
 
-          // Draws text
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = "#1a1a1a";
@@ -151,6 +151,17 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
         nodeCanvasObjectMode={() => "replace"}
         cooldownTicks={100}
       />
+      
+      {/* Description Panel */}
+      {selectedNode && (
+        <div className="absolute bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur border-t border-gray-200">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gray-100 rounded-lg p-4">
+              {selectedNode.description}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
