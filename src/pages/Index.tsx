@@ -3,6 +3,7 @@ import TaskGraph from "@/components/TaskGraph";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ChatInterface from "@/components/ui/chat-interface";
+import DescriptionToggle from "@/components/ui/descriptiontoggle";
 
 interface Message {
   id: string;
@@ -18,6 +19,7 @@ const Index = () => {
   });
   
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [showDescriptions, setShowDescriptions] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -94,7 +96,11 @@ const Index = () => {
   return (
     <div className="h-screen w-screen overflow-hidden dark relative">
       <div className="absolute inset-0">
-        <TaskGraph data={graphData} />
+        <TaskGraph data={graphData} showDescriptions={showDescriptions} />
+        <DescriptionToggle 
+          showDescriptions={showDescriptions}
+          onToggle={setShowDescriptions}
+        />
       </div>
 
       <div className={`absolute right-0 top-0 h-full transition-transform duration-300 ease-in-out ${

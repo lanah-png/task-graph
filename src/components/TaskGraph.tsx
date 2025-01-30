@@ -25,12 +25,13 @@ interface GraphData {
 
 interface TaskGraphProps {
   data: GraphData;
+  showDescriptions?: boolean;
 }
 
-const TaskGraph = ({ data }: TaskGraphProps) => {
+const TaskGraph = ({ data, showDescriptions = true }: TaskGraphProps) => {
   const fgRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = React.useState({ width: window.innerWidth, height: window.innerHeight });
+  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
@@ -55,7 +56,6 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
     setSelectedNodeId(node.id);
     setSelectedNode(node);
 
-    // Get the current zoom level
     const distance = 40;
     const transitionDuration = 800;
 
@@ -146,7 +146,7 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
       />
       
       {/* Description Panel */}
-      {selectedNode && (
+      {selectedNode && showDescriptions && (
         <div className="absolute bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur border-t border-gray-200">
           <div className="max-w-4xl mx-auto">
             <div className="bg-gray-100 rounded-lg p-4">
