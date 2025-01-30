@@ -10,7 +10,7 @@ interface Node {
   y?: number;
   z?: number;
   selected?: boolean;
-  description: string; // Made description required
+  description: string;
 }
 
 interface Link {
@@ -145,6 +145,16 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
         cooldownTicks={100}
       />
       
+      {/* Description Panel */}
+      {selectedNode && (
+        <div className="absolute bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur border-t border-gray-200">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gray-100 rounded-lg p-4">
+              {selectedNode.description || "No description available"}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

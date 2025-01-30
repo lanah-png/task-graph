@@ -28,7 +28,6 @@ const Index = () => {
   ]);
 
   const handleTaskSubmit = async (task: string) => {
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
@@ -39,22 +38,36 @@ const Index = () => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      // Simulated API call
-
-      //interface TaskNode {
-      // id: string
-      // title: string
-      // description: string
-      // status: 'new' | 'in-progress' | 'complete'
-      // parentId?: string
-      // childrenIds: string[]
-//}
       const mockResponse = {
         nodes: [
-          { id: "main", name: task, val: 20, color: "#8B5CF6" },
-          { id: "sub1", name: "Subtask 1", val: 10, color: "#D946EF" },
-          { id: "sub2", name: "Subtask 2", val: 10, color: "#F97316" },
-          { id: "sub3", name: "Subtask 3", val: 10, color: "#0EA5E9" },
+          { 
+            id: "main", 
+            name: task, 
+            val: 20, 
+            color: "#8B5CF6",
+            description: "This is the main task that needs to be broken down. Click on the subtasks to see their specific descriptions."
+          },
+          { 
+            id: "sub1", 
+            name: "Subtask 1", 
+            val: 10, 
+            color: "#D946EF",
+            description: "First component of the task that needs to be addressed. This subtask focuses on the initial phase."
+          },
+          { 
+            id: "sub2", 
+            name: "Subtask 2", 
+            val: 10, 
+            color: "#F97316",
+            description: "Second key component that builds upon the first subtask. This phase handles the core implementation."
+          },
+          { 
+            id: "sub3", 
+            name: "Subtask 3", 
+            val: 10, 
+            color: "#0EA5E9",
+            description: "Final phase of the task that brings everything together. This ensures all components are properly integrated."
+          },
         ],
         links: [
           { source: "main", target: "sub1" },
@@ -65,11 +78,10 @@ const Index = () => {
 
       setGraphData(mockResponse);
 
-      // Add assistant response
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `I've broken down "${task}" into several subtasks. You can see them in the graph. Would you like to break down any of these subtasks further?`,
+        content: `I've broken down "${task}" into several subtasks. You can see them in the graph. Click on any node to see its detailed description. Would you like to break down any of these subtasks further?`,
         timestamp: new Date(),
       };
       
