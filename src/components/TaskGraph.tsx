@@ -57,8 +57,8 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false}: TaskGra
     setSelectedNodeId(node.id);
     setSelectedNode(node);
 
-    const distance = 40;
     const transitionDuration = 800;
+    const CHAT_WIDTH = 400;
 
     // Calculate the position to center on
     const x = node.x || 0;
@@ -66,8 +66,11 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false}: TaskGra
 
     // Center and zoom
     const moveCamera = () => {
-      // Center on the node
-      fg.centerAt(x, y, transitionDuration);
+      // If chat is open, offset the center point to the left by half the chat width
+      const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+      
+      // Center on the node with the offset
+      fg.centerAt(x + offsetX, y, transitionDuration);
       
       // Zoom in
       setTimeout(() => {
@@ -76,16 +79,20 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false}: TaskGra
     };
 
     setTimeout(moveCamera, 0);
-  }, []);
+}, [isChatOpen]);
 
-  const handleBackgroundClick = useCallback(() => {
+const handleBackgroundClick = useCallback(() => {
     const fg = fgRef.current;
     if (!fg) return;
     setSelectedNodeId(null);
     setSelectedNode(null);
 
-    // Reset zoom and center
-    fg.centerAt(0, 0, 1000);
+    // Calculate center offset based on chat state
+    const CHAT_WIDTH = 400;
+    const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+
+    // Reset zoom and center with offset
+    fg.centerAt(offsetX, 0, 1000);
     fg.zoom(3, 1000);
 
     // Reset forces to default values
@@ -94,7 +101,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false}: TaskGra
     
     // Reheat the simulation
     fg.d3ReheatSimulation();
-  }, []);
+}, [isChatOpen]); // Add isChatOpen to dependencies
 
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
