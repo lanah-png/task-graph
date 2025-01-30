@@ -96,7 +96,11 @@ const Index = () => {
   return (
     <div className="h-screen w-screen overflow-hidden dark relative">
       <div className="absolute inset-0">
-        <TaskGraph data={graphData} showDescriptions={showDescriptions} />
+        <TaskGraph 
+          data={graphData} 
+          showDescriptions={showDescriptions}
+          isChatOpen={!isCollapsed} 
+        />
         <DescriptionToggle 
           showDescriptions={showDescriptions}
           onToggle={setShowDescriptions}

@@ -26,9 +26,10 @@ interface GraphData {
 interface TaskGraphProps {
   data: GraphData;
   showDescriptions?: boolean;
+  isChatOpen?: boolean;
 }
 
-const TaskGraph = ({ data, showDescriptions = true }: TaskGraphProps) => {
+const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false}: TaskGraphProps) => {
   const fgRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -147,7 +148,9 @@ const TaskGraph = ({ data, showDescriptions = true }: TaskGraphProps) => {
       
       {/* Description Panel */}
       {selectedNode && showDescriptions && (
-        <div className="absolute bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur border-t border-gray-200">
+        <div className={`absolute bottom-0 left-0 p-6 bg-white/90 backdrop-blur border-t border-gray-200 transition-all duration-300 ${
+          isChatOpen ? 'w-[calc(100%-400px)]' : 'w-full'
+        }`}>
           <div className="max-w-4xl mx-auto">
             <div className="bg-gray-100 rounded-lg p-4">
               {selectedNode.description || "No description available"}
