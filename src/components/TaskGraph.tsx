@@ -1,12 +1,5 @@
 import React, { useCallback, useRef, useEffect, useState} from "react";
-import { ForceGraph2D } from "react-force-graph";
-
-interface ForceGraphMethods {
-  centerAt: (x: number, y: number, duration?: number) => void;
-  zoom: (zoom: number, duration?: number) => void;
-  d3Force: (forceName: string, force?: any) => any;
-  d3ReheatSimulation: () => void;
-}
+import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
 
 interface Node {
   id: string;
@@ -105,7 +98,7 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
       <ForceGraph2D
-
+        ref={fgRef}
         graphData={data}
         width={dimensions.width}
         height={dimensions.height}
@@ -152,16 +145,6 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
         cooldownTicks={100}
       />
       
-      {/* Description Panel */}
-      {selectedNode && (
-        <div className="absolute bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur border-t border-gray-200">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-gray-100 rounded-lg p-4">
-              {selectedNode.description}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
