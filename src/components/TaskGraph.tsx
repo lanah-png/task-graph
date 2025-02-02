@@ -1,5 +1,8 @@
 import React, { useCallback, useRef, useEffect, useState} from "react";
 import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Pencil, Check, X } from "lucide-react";
 
 interface Node {
   id: string;
@@ -27,14 +30,17 @@ interface TaskGraphProps {
   data: GraphData;
   showDescriptions?: boolean;
   isChatOpen?: boolean;
+  onNodeUpdate?: (nodeId: string, updates: Partial<Node>) => void;
 }
 
-const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false}: TaskGraphProps) => {
+const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUpdate }: TaskGraphProps) => {
   const fgRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedDescription, setEditedDescription] = useState("");
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -103,6 +109,29 @@ const handleBackgroundClick = useCallback(() => {
     fg.d3ReheatSimulation();
 }, [isChatOpen]); // Add isChatOpen to dependencies
 
+const handleStartEditing = () => {
+  if (selectedNode) {
+    setEditedDescription(selectedNode.description);
+    setIsEditing(true);
+  }
+};
+
+const handleSaveDescription = () => {
+  if (selectedNode && onNodeUpdate) {
+    onNodeUpdate(selectedNode.id, { description: editedDescription });
+    // Update the local selected node state as well
+    setSelectedNode({ ...selectedNode, description: editedDescription });
+  }
+  setIsEditing(false);
+};
+
+const handleCancelEdit = () => {
+  setIsEditing(false);
+  if (selectedNode) {
+    setEditedDescription(selectedNode.description);
+  }
+};
+
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
       <ForceGraph2D
@@ -159,9 +188,51 @@ const handleBackgroundClick = useCallback(() => {
           isChatOpen ? 'w-[calc(100%-400px)]' : 'w-full'
         }`}>
           <div className="max-w-4xl mx-auto">
-            <div className="bg-gray-100 rounded-lg p-4">
-              {selectedNode.description || "No description available"}
-            </div>
+            {isEditing ? (
+              <div className="space-y-4">
+                <Textarea
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  className="min-h-[100px] text-base"
+                  placeholder="Enter description..."
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveDescription}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="group/description relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-2 opacity-0 group-hover/description:opacity-100 transition-opacity"
+                  onClick={handleStartEditing}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <div 
+                  className="bg-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onDoubleClick={handleStartEditing}
+                >
+                  {selectedNode.description || "No description available"}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

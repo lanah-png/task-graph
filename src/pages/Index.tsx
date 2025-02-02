@@ -12,6 +12,18 @@ interface Message {
   timestamp: Date;
 }
 
+interface Node {
+  id: string;
+  name: string;
+  val: number;
+  color?: string;
+  x?: number;
+  y?: number;
+  z?: number;
+  selected?: boolean;
+  description: string;
+}
+
 const Index = () => {
   const [graphData, setGraphData] = useState({
     nodes: [],
@@ -93,13 +105,25 @@ const Index = () => {
     }
   };
 
+  const handleNodeUpdate = (nodeId: string, updates: Partial<Node>) => {
+    setGraphData(prevData => ({
+      ...prevData,
+      nodes: prevData.nodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, ...updates }
+          : node
+      )
+    }));
+  };
+
   return (
     <div className="h-screen w-screen overflow-hidden dark relative">
       <div className="absolute inset-0">
         <TaskGraph 
           data={graphData} 
           showDescriptions={showDescriptions}
-          isChatOpen={!isCollapsed} 
+          isChatOpen={!isCollapsed}
+          onNodeUpdate={handleNodeUpdate}
         />
         <DescriptionToggle 
           showDescriptions={showDescriptions}
