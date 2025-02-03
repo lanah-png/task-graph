@@ -3,6 +3,7 @@ import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Check, X } from "lucide-react";
+import NodeActionsMenu from "./nodeactionsmenu";
 
 interface Node {
   id: string;
@@ -43,6 +44,8 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
+  const [actionMenuNode, setActionMenuNode] = useState<{x: number, y: number, node: Node} | null>(null);
+  
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -65,6 +68,16 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     setSelectedNodeId(node.id);
     setSelectedNode(node);
 
+    // Convert graph coordinates to screen coordinates
+    const screenPos = fg.graph2ScreenCoords(node.x || 0, node.y || 0);
+    if (screenPos) {
+      setActionMenuNode({
+        x: screenPos.x,
+        y: screenPos.y,
+        node: node
+      });
+    }
+
     const transitionDuration = 800;
     const CHAT_WIDTH = 400;
 
@@ -74,13 +87,8 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
     // Center and zoom
     const moveCamera = () => {
-      // If chat is open, offset the center point to the left by half the chat width
       const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
-      
-      // Center on the node with the offset
       fg.centerAt(x + offsetX, y, transitionDuration);
-      
-      // Zoom in
       setTimeout(() => {
         fg.zoom(2, transitionDuration);
       }, 50);
@@ -90,6 +98,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 }, [isChatOpen]);
 
 const handleBackgroundClick = useCallback(() => {
+  setActionMenuNode(null);
   const fg = fgRef.current;
   if (!fg || isEditing) return; // Don't handle background clicks while editing
   setSelectedNodeId(null);
@@ -197,6 +206,18 @@ const handleCancelEdit = () => {
         nodeCanvasObjectMode={() => "replace"}
         cooldownTicks={100}
       />
+      
+      {/* Node Actions Menu */}
+      {actionMenuNode && (
+        <NodeActionsMenu
+          x={actionMenuNode.x}
+          y={actionMenuNode.y}
+          onAddTask={() => console.log('Add task')}
+          onDeleteTask={() => console.log('Delete task')}
+          onEditTask={() => console.log('Edit task')}
+          onChangeStatus={() => console.log('Change status')}
+        />
+      )}
       
       {/* Description Panel */}
       {selectedNode && showDescriptions && (
