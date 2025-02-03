@@ -68,30 +68,33 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     setSelectedNodeId(node.id);
     setSelectedNode(node);
 
-    // Convert graph coordinates to screen coordinates
-    const screenPos = fg.graph2ScreenCoords(node.x || 0, node.y || 0);
-    if (screenPos) {
-      setActionMenuNode({
-        x: screenPos.x,
-        y: screenPos.y,
-        node: node
-      });
-    }
-
     const transitionDuration = 800;
     const CHAT_WIDTH = 400;
 
-    // Calculate the position to center on
+    // Calculate the target center position
     const x = node.x || 0;
     const y = node.y || 0;
+    const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
 
     // Center and zoom
     const moveCamera = () => {
-      const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+      // Center on the node with the offset
       fg.centerAt(x + offsetX, y, transitionDuration);
+      
+      // Zoom in
+      fg.zoom(2, transitionDuration);
+
+      // After the transition completes, update the menu position using screen coordinates
       setTimeout(() => {
-        fg.zoom(2, transitionDuration);
-      }, 50);
+        const screenPos = fg.graph2ScreenCoords(x, y);
+        if (screenPos) {
+          setActionMenuNode({
+            x: screenPos.x,
+            y: screenPos.y,
+            node: node
+          });
+        }
+      }, transitionDuration);
     };
 
     setTimeout(moveCamera, 0);
