@@ -1,5 +1,8 @@
 import React, { useCallback, useRef, useEffect, useState} from "react";
 import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Pencil, Check, X } from "lucide-react";
 
 interface Node {
   id: string;
@@ -9,8 +12,10 @@ interface Node {
   x?: number;
   y?: number;
   z?: number;
+  fx?: number; 
+  fy?: number;
   selected?: boolean;
-  description: string; // Made description required
+  description: string;
 }
 
 interface Link {
@@ -25,14 +30,19 @@ interface GraphData {
 
 interface TaskGraphProps {
   data: GraphData;
+  showDescriptions?: boolean;
+  isChatOpen?: boolean;
+  onNodeUpdate?: (nodeId: string, updates: Partial<Node>) => void;
 }
 
-const TaskGraph = ({ data }: TaskGraphProps) => {
+const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUpdate }: TaskGraphProps) => {
   const fgRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = React.useState({ width: window.innerWidth, height: window.innerHeight });
+  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedDescription, setEditedDescription] = useState("");
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -55,9 +65,8 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
     setSelectedNodeId(node.id);
     setSelectedNode(node);
 
-    // Get the current zoom level
-    const distance = 40;
     const transitionDuration = 800;
+    const CHAT_WIDTH = 400;
 
     // Calculate the position to center on
     const x = node.x || 0;
@@ -65,8 +74,11 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
 
     // Center and zoom
     const moveCamera = () => {
-      // Center on the node
-      fg.centerAt(x, y, transitionDuration);
+      // If chat is open, offset the center point to the left by half the chat width
+      const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+      
+      // Center on the node with the offset
+      fg.centerAt(x + offsetX, y, transitionDuration);
       
       // Zoom in
       setTimeout(() => {
@@ -75,25 +87,65 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
     };
 
     setTimeout(moveCamera, 0);
-  }, []);
+}, [isChatOpen]);
 
-  const handleBackgroundClick = useCallback(() => {
+const handleBackgroundClick = useCallback(() => {
+  const fg = fgRef.current;
+  if (!fg || isEditing) return; // Don't handle background clicks while editing
+  setSelectedNodeId(null);
+  setSelectedNode(null);
+
+  // Calculate center offset based on chat state
+  const CHAT_WIDTH = 400;
+  const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+
+  // Reset zoom and center with offset
+  fg.centerAt(offsetX, 0, 1000);
+  fg.zoom(3, 1000);
+
+  // Reset forces to default values
+  fg.d3Force('charge')?.strength(-30);
+  fg.d3Force('link')?.distance(30);
+  
+  // Reheat the simulation
+  fg.d3ReheatSimulation();
+}, [isChatOpen, isEditing]); // Add isEditing to dependencies
+
+const handleStartEditing = () => {
+  if (selectedNode) {
+    setEditedDescription(selectedNode.description);
+    setIsEditing(true);
+  }
+};
+
+
+const handleSaveDescription = () => {
+  if (selectedNode && onNodeUpdate) {
     const fg = fgRef.current;
-    if (!fg) return;
-    setSelectedNodeId(null);
-    setSelectedNode(null);
+    if (fg) {
+      // Store current force settings
+      const currentChargeForce = fg.d3Force('charge');
+      const currentLinkForce = fg.d3Force('link');
 
-    // Reset zoom and center
-    fg.centerAt(0, 0, 1000);
-    fg.zoom(3, 1000);
+      // Completely remove forces temporarily
+      fg.d3Force('charge', null);
+      fg.d3Force('link', null);
+    }
 
-    // Reset forces to default values
-    fg.d3Force('charge')?.strength(-30);
-    fg.d3Force('link')?.distance(30);
-    
-    // Reheat the simulation
-    fg.d3ReheatSimulation();
-  }, []);
+    // Do the update
+    onNodeUpdate(selectedNode.id, { description: editedDescription });
+    setSelectedNode({ ...selectedNode, description: editedDescription });
+    setIsEditing(false);
+  }
+};
+
+const handleCancelEdit = () => {
+  setIsEditing(false);
+  if (selectedNode) {
+    setEditedDescription(selectedNode.description);
+  }
+};
+
 
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
@@ -106,7 +158,8 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
         nodeLabel="name"
         nodeColor={(node: Node) => node.color || "#6366f1"}
         linkColor={() => "#e2e8f0"}
-        nodeRelSize={8}
+        nodeRelSize={8} 
+        d3VelocityDecay={0.1} 
         linkWidth={2}
         onNodeClick={handleNodeClick}
         nodeCanvasObject={(node: Node, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -145,6 +198,60 @@ const TaskGraph = ({ data }: TaskGraphProps) => {
         cooldownTicks={100}
       />
       
+      {/* Description Panel */}
+      {selectedNode && showDescriptions && (
+        <div className={`absolute bottom-0 left-0 p-6 bg-white/90 backdrop-blur border-t border-gray-200 transition-all duration-300 ${
+          isChatOpen ? 'w-[calc(100%-400px)]' : 'w-full'
+        }`}>
+          <div className="max-w-4xl mx-auto">
+            {isEditing ? (
+              <div className="space-y-4">
+                <Textarea
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  className="min-h-[100px] text-base"
+                  placeholder="Enter description..."
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveDescription}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="group/description relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-2 opacity-0 group-hover/description:opacity-100 transition-opacity"
+                  onClick={handleStartEditing}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <div 
+                  className="bg-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onDoubleClick={handleStartEditing}
+                >
+                  {selectedNode.description || "No description available"}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
