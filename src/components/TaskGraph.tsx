@@ -12,6 +12,8 @@ interface Node {
   x?: number;
   y?: number;
   z?: number;
+  fx?: number; 
+  fy?: number;
   selected?: boolean;
   description: string;
 }
@@ -88,26 +90,26 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 }, [isChatOpen]);
 
 const handleBackgroundClick = useCallback(() => {
-    const fg = fgRef.current;
-    if (!fg) return;
-    setSelectedNodeId(null);
-    setSelectedNode(null);
+  const fg = fgRef.current;
+  if (!fg || isEditing) return; // Don't handle background clicks while editing
+  setSelectedNodeId(null);
+  setSelectedNode(null);
 
-    // Calculate center offset based on chat state
-    const CHAT_WIDTH = 400;
-    const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+  // Calculate center offset based on chat state
+  const CHAT_WIDTH = 400;
+  const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
 
-    // Reset zoom and center with offset
-    fg.centerAt(offsetX, 0, 1000);
-    fg.zoom(3, 1000);
+  // Reset zoom and center with offset
+  fg.centerAt(offsetX, 0, 1000);
+  fg.zoom(3, 1000);
 
-    // Reset forces to default values
-    fg.d3Force('charge')?.strength(-30);
-    fg.d3Force('link')?.distance(30);
-    
-    // Reheat the simulation
-    fg.d3ReheatSimulation();
-}, [isChatOpen]); // Add isChatOpen to dependencies
+  // Reset forces to default values
+  fg.d3Force('charge')?.strength(-30);
+  fg.d3Force('link')?.distance(30);
+  
+  // Reheat the simulation
+  fg.d3ReheatSimulation();
+}, [isChatOpen, isEditing]); // Add isEditing to dependencies
 
 const handleStartEditing = () => {
   if (selectedNode) {
@@ -116,13 +118,25 @@ const handleStartEditing = () => {
   }
 };
 
+
 const handleSaveDescription = () => {
   if (selectedNode && onNodeUpdate) {
+    const fg = fgRef.current;
+    if (fg) {
+      // Store current force settings
+      const currentChargeForce = fg.d3Force('charge');
+      const currentLinkForce = fg.d3Force('link');
+
+      // Completely remove forces temporarily
+      fg.d3Force('charge', null);
+      fg.d3Force('link', null);
+    }
+
+    // Do the update
     onNodeUpdate(selectedNode.id, { description: editedDescription });
-    // Update the local selected node state as well
     setSelectedNode({ ...selectedNode, description: editedDescription });
+    setIsEditing(false);
   }
-  setIsEditing(false);
 };
 
 const handleCancelEdit = () => {
@@ -131,6 +145,7 @@ const handleCancelEdit = () => {
     setEditedDescription(selectedNode.description);
   }
 };
+
 
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
@@ -143,7 +158,8 @@ const handleCancelEdit = () => {
         nodeLabel="name"
         nodeColor={(node: Node) => node.color || "#6366f1"}
         linkColor={() => "#e2e8f0"}
-        nodeRelSize={8}
+        nodeRelSize={8} 
+        d3VelocityDecay={0.1} 
         linkWidth={2}
         onNodeClick={handleNodeClick}
         nodeCanvasObject={(node: Node, ctx: CanvasRenderingContext2D, globalScale: number) => {

@@ -104,16 +104,20 @@ const Index = () => {
       console.error("Error processing task:", error);
     }
   };
-
   const handleNodeUpdate = (nodeId: string, updates: Partial<Node>) => {
-    setGraphData(prevData => ({
-      ...prevData,
-      nodes: prevData.nodes.map(node => 
-        node.id === nodeId 
-          ? { ...node, ...updates }
-          : node
-      )
-    }));
+    console.log('Node Update Handler - Updates:', updates);
+    setGraphData(prevData => {
+      const newData = {
+        nodes: prevData.nodes.map(node => 
+          node.id === nodeId 
+            ? { ...node, ...updates }
+            : node
+        ),
+        links: prevData.links.map(link => ({...link})) // Deep copy links
+      };
+      console.log('Node Update Handler - New Graph Data:', newData);
+      return newData;
+    });
   };
 
   return (
