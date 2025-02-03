@@ -65,6 +65,9 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     const fg = fgRef.current;
     if (!fg) return;
 
+    // Clear the action menu when clicking a different node
+    setActionMenuNode(null);
+
     setSelectedNodeId(node.id);
     setSelectedNode(node);
 
@@ -85,6 +88,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     setTimeout(moveCamera, 0);
 }, [isChatOpen]);
 
+
 // Add onNodeRightClick handler
 const handleNodeRightClick = useCallback((node: Node, event: MouseEvent) => {
   event.preventDefault(); // Prevent default context menu
@@ -103,9 +107,11 @@ const handleNodeRightClick = useCallback((node: Node, event: MouseEvent) => {
 }, []);
 
 const handleBackgroundClick = useCallback(() => {
-  setActionMenuNode(null);
   const fg = fgRef.current;
-  if (!fg || isEditing) return; // Don't handle background clicks while editing
+  if (!fg || isEditing) return;
+  
+  // Clear both the selection and action menu
+  setActionMenuNode(null);
   setSelectedNodeId(null);
   setSelectedNode(null);
 
@@ -123,7 +129,7 @@ const handleBackgroundClick = useCallback(() => {
   
   // Reheat the simulation
   fg.d3ReheatSimulation();
-}, [isChatOpen, isEditing]); // Add isEditing to dependencies
+}, [isChatOpen, isEditing]);
 
 const handleStartEditing = () => {
   if (selectedNode) {
