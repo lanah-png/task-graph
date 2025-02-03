@@ -78,27 +78,29 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
     // Center and zoom
     const moveCamera = () => {
-      // Center on the node with the offset
       fg.centerAt(x + offsetX, y, transitionDuration);
-      
-      // Zoom in
       fg.zoom(2, transitionDuration);
-
-      // After the transition completes, update the menu position using screen coordinates
-      setTimeout(() => {
-        const screenPos = fg.graph2ScreenCoords(x, y);
-        if (screenPos) {
-          setActionMenuNode({
-            x: screenPos.x,
-            y: screenPos.y,
-            node: node
-          });
-        }
-      }, transitionDuration);
     };
 
     setTimeout(moveCamera, 0);
 }, [isChatOpen]);
+
+// Add onNodeRightClick handler
+const handleNodeRightClick = useCallback((node: Node, event: MouseEvent) => {
+  event.preventDefault(); // Prevent default context menu
+  const fg = fgRef.current;
+  if (!fg) return;
+  
+  // Get screen coordinates after the node is centered
+  const screenPos = fg.graph2ScreenCoords(node.x || 0, node.y || 0);
+  if (screenPos) {
+    setActionMenuNode({
+      x: screenPos.x,
+      y: screenPos.y,
+      node: node
+    });
+  }
+}, []);
 
 const handleBackgroundClick = useCallback(() => {
   setActionMenuNode(null);
@@ -174,6 +176,7 @@ const handleCancelEdit = () => {
         d3VelocityDecay={0.1} 
         linkWidth={2}
         onNodeClick={handleNodeClick}
+        onNodeRightClick={handleNodeRightClick}
         nodeCanvasObject={(node: Node, ctx: CanvasRenderingContext2D, globalScale: number) => {
           const label = node.name;
           const fontSize = 14/globalScale;
