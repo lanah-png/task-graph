@@ -17,6 +17,7 @@ interface Node {
   fy?: number;
   selected?: boolean;
   description: string;
+  status?: 'notStarted' | 'inProgress' | 'completed';
 }
 
 interface Link {
@@ -35,6 +36,7 @@ interface TaskGraphProps {
   isChatOpen?: boolean;
   onNodeUpdate?: (nodeId: string, updates: Partial<Node>) => void;
 }
+
 
 const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUpdate }: TaskGraphProps) => {
   const fgRef = useRef<ForceGraphMethods>();
@@ -87,6 +89,12 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
     setTimeout(moveCamera, 0);
 }, [isChatOpen]);
+
+const STATUS_COLORS = {
+  notStarted: '#FFFFFF',  // White
+  inProgress: '#FCD34D',  // Yellow
+  completed: '#4ADE80',   // Green
+};
 
 
 // Add onNodeRightClick handler
@@ -166,6 +174,37 @@ const handleCancelEdit = () => {
   }
 };
 
+const cycleNodeStatus = useCallback((nodeId: string) => {
+  console.log('Cycling status for node:', nodeId);
+  if (!onNodeUpdate) {
+    console.log('No onNodeUpdate function');
+    return;
+  }
+
+  const node = data.nodes.find(n => n.id === nodeId);
+  if (!node) {
+    console.log('Node not found');
+    return;
+  }
+
+  const statusCycle = {
+    notStarted: 'inProgress',
+    inProgress: 'completed',
+    completed: 'notStarted'
+  } as const;
+
+  const currentStatus = node.status || 'notStarted';
+  const nextStatus = statusCycle[currentStatus];
+  
+  console.log('Current status:', currentStatus);
+  console.log('Next status:', nextStatus);
+
+  onNodeUpdate(nodeId, { 
+    status: nextStatus,
+    color: STATUS_COLORS[nextStatus] // Also update the color
+  });
+}, [data.nodes, onNodeUpdate]);
+
 
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
@@ -176,7 +215,13 @@ const handleCancelEdit = () => {
         height={dimensions.height}
         onBackgroundClick={handleBackgroundClick}
         nodeLabel="name"
-        nodeColor={(node: Node) => node.color || "#6366f1"}
+        nodeColor={(node: Node) => {
+          if (node.status && STATUS_COLORS[node.status]) {
+            console.log(`Node ${node.id} color:`, STATUS_COLORS[node.status]);
+            return STATUS_COLORS[node.status];
+          }
+          return STATUS_COLORS.notStarted;
+        }}
         linkColor={() => "#e2e8f0"}
         nodeRelSize={8} 
         d3VelocityDecay={0.1} 
@@ -221,15 +266,18 @@ const handleCancelEdit = () => {
       
       {/* Node Actions Menu */}
       {actionMenuNode && (
-        <NodeActionsMenu
-          x={actionMenuNode.x}
-          y={actionMenuNode.y}
-          onAddTask={() => console.log('Add task')}
-          onDeleteTask={() => console.log('Delete task')}
-          onEditTask={() => console.log('Edit task')}
-          onChangeStatus={() => console.log('Change status')}
-        />
-      )}
+      <NodeActionsMenu
+        x={actionMenuNode.x}
+        y={actionMenuNode.y}
+        onAddTask={() => console.log('Add task')}
+        onDeleteTask={() => console.log('Delete task')}
+        onEditTask={() => console.log('Edit task')}
+        onChangeStatus={() => {
+          console.log('Change status clicked for node:', actionMenuNode.node.id);
+          cycleNodeStatus(actionMenuNode.node.id);
+        }}
+      />
+    )}
       
       {/* Description Panel */}
       {selectedNode && showDescriptions && (

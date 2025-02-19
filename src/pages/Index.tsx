@@ -22,6 +22,7 @@ interface Node {
   z?: number;
   selected?: boolean;
   description: string;
+  status?: 'notStarted' | 'inProgress' | 'completed';
 }
 
 const Index = () => {
@@ -53,12 +54,13 @@ const Index = () => {
 
     try {
       const mockResponse = {
-        nodes: [
+        nodes: [ 
           { 
             id: "main", 
             name: task, 
             val: 20, 
             color: "#8B5CF6",
+            status: 'notStarted',
             description: "This is the main task that needs to be broken down. Click on the subtasks to see their specific descriptions."
           },
           { 
@@ -73,6 +75,7 @@ const Index = () => {
             name: "Subtask 2", 
             val: 10, 
             color: "#F97316",
+            status: 'notStarted',
             description: "Second key component that builds upon the first subtask. This phase handles the core implementation."
           },
           { 
@@ -80,6 +83,7 @@ const Index = () => {
             name: "Subtask 3", 
             val: 10, 
             color: "#0EA5E9",
+            status: 'notStarted',
             description: "Final phase of the task that brings everything together. This ensures all components are properly integrated."
           },
         ],
@@ -105,19 +109,14 @@ const Index = () => {
     }
   };
   const handleNodeUpdate = (nodeId: string, updates: Partial<Node>) => {
-    console.log('Node Update Handler - Updates:', updates);
-    setGraphData(prevData => {
-      const newData = {
-        nodes: prevData.nodes.map(node => 
-          node.id === nodeId 
-            ? { ...node, ...updates }
-            : node
-        ),
-        links: prevData.links.map(link => ({...link})) // Deep copy links
-      };
-      console.log('Node Update Handler - New Graph Data:', newData);
-      return newData;
-    });
+    setGraphData(prevData => ({
+      ...prevData,
+      nodes: prevData.nodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, ...updates }
+          : node
+      )
+    }));
   };
 
   return (

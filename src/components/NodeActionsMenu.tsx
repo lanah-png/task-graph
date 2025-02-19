@@ -50,7 +50,9 @@ const NodeActionsMenu = ({
       onClick: onChangeStatus,
       position: { x, y: y + radius } // Bottom
     }
-  ];
+];
+
+  
 
   return (
     <div className="fixed inset-0 pointer-events-none">
