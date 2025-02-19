@@ -37,6 +37,11 @@ interface TaskGraphProps {
   onNodeUpdate?: (nodeId: string, updates: Partial<Node>) => void;
 }
 
+const STATUS_COLORS = {
+  notStarted: '#FFFFFF',  // White
+  inProgress: '#FCD34D',  // Yellow
+  completed: '#4ADE80',   // Green
+} as const;
 
 const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUpdate }: TaskGraphProps) => {
   const fgRef = useRef<ForceGraphMethods>();
@@ -89,13 +94,6 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
     setTimeout(moveCamera, 0);
 }, [isChatOpen]);
-
-const STATUS_COLORS = {
-  notStarted: '#FFFFFF',  // White
-  inProgress: '#FCD34D',  // Yellow
-  completed: '#4ADE80',   // Green
-};
-
 
 // Add onNodeRightClick handler
 const handleNodeRightClick = useCallback((node: Node, event: MouseEvent) => {
@@ -175,17 +173,12 @@ const handleCancelEdit = () => {
 };
 
 const cycleNodeStatus = useCallback((nodeId: string) => {
-  console.log('Cycling status for node:', nodeId);
-  if (!onNodeUpdate) {
-    console.log('No onNodeUpdate function');
-    return;
-  }
+  if (!onNodeUpdate) return;
+  const fg = fgRef.current;
+  if (!fg) return;
 
   const node = data.nodes.find(n => n.id === nodeId);
-  if (!node) {
-    console.log('Node not found');
-    return;
-  }
+  if (!node) return;
 
   const statusCycle = {
     notStarted: 'inProgress',
@@ -195,14 +188,9 @@ const cycleNodeStatus = useCallback((nodeId: string) => {
 
   const currentStatus = node.status || 'notStarted';
   const nextStatus = statusCycle[currentStatus];
-  
-  console.log('Current status:', currentStatus);
-  console.log('Next status:', nextStatus);
 
-  onNodeUpdate(nodeId, { 
-    status: nextStatus,
-    color: STATUS_COLORS[nextStatus] // Also update the color
-  });
+  // Update the status
+  onNodeUpdate(nodeId, { status: nextStatus });
 }, [data.nodes, onNodeUpdate]);
 
 
@@ -216,16 +204,25 @@ const cycleNodeStatus = useCallback((nodeId: string) => {
         onBackgroundClick={handleBackgroundClick}
         nodeLabel="name"
         nodeColor={(node: Node) => {
-          if (node.status && STATUS_COLORS[node.status]) {
-            console.log(`Node ${node.id} color:`, STATUS_COLORS[node.status]);
-            return STATUS_COLORS[node.status];
-          }
-          return STATUS_COLORS.notStarted;
+          console.log('Node color calculation:', {
+            id: node.id,
+            status: node.status,
+            color: STATUS_COLORS[node.status || 'notStarted']
+          });
+          return STATUS_COLORS[node.status || 'notStarted'];
         }}
         linkColor={() => "#e2e8f0"}
         nodeRelSize={8} 
-        d3VelocityDecay={0.1} 
-        linkWidth={2}
+        d3VelocityDecay={0.3}
+        d3AlphaDecay={0.02}
+        cooldownTime={1000}
+        onEngineStop={() => {
+          // Fix nodes in place after simulation stops
+          data.nodes.forEach(node => {
+            node.fx = node.x;
+            node.fy = node.y;
+          });
+        }}
         onNodeClick={handleNodeClick}
         onNodeRightClick={handleNodeRightClick}
         nodeCanvasObject={(node: Node, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -235,7 +232,8 @@ const cycleNodeStatus = useCallback((nodeId: string) => {
           const textWidth = ctx.measureText(label).width;
           const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.8);
 
-          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+          // Draw node background with status color
+          ctx.fillStyle = STATUS_COLORS[node.status || 'notStarted'];
           ctx.fillRect(
             node.x! - bckgDimensions[0] / 2,
             node.y! - bckgDimensions[1] / 2,
@@ -255,13 +253,13 @@ const cycleNodeStatus = useCallback((nodeId: string) => {
             );
           }
 
+          // Draw the text
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = "#1a1a1a";
           ctx.fillText(label, node.x!, node.y!);
         }}
         nodeCanvasObjectMode={() => "replace"}
-        cooldownTicks={100}
       />
       
       {/* Node Actions Menu */}

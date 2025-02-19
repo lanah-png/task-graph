@@ -109,14 +109,52 @@ const Index = () => {
     }
   };
   const handleNodeUpdate = (nodeId: string, updates: Partial<Node>) => {
-    setGraphData(prevData => ({
-      ...prevData,
-      nodes: prevData.nodes.map(node => 
-        node.id === nodeId 
-          ? { ...node, ...updates }
-          : node
-      )
-    }));
+    setGraphData(prevData => {
+      const updatedNodes = prevData.nodes.map(node => {
+        if (node.id === nodeId) {
+          // Determine the next status
+          let nextStatus: 'notStarted' | 'inProgress' | 'completed';
+          let nextColor: string;
+          
+          if (updates.status) {
+            // If we're updating status, cycle through the states
+            switch (node.status) {
+              case 'notStarted':
+                nextStatus = 'inProgress';
+                nextColor = '#FCD34D'; // yellow
+                break;
+              case 'inProgress':
+                nextStatus = 'completed';
+                nextColor = '#4ADE80'; // green
+                break;
+              case 'completed':
+                nextStatus = 'notStarted';
+                nextColor = node.color || '#8B5CF6'; // original color
+                break;
+              default:
+                nextStatus = 'inProgress';
+                nextColor = '#FCD34D';
+            }
+            
+            return {
+              ...node,
+              ...updates,
+              status: nextStatus,
+              color: nextColor,
+            };
+          }
+          
+          // For other updates, just merge them normally
+          return { ...node, ...updates };
+        }
+        return node;
+      });
+
+      return {
+        ...prevData,
+        nodes: updatedNodes,
+      };
+    });
   };
 
   return (
