@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Check, X } from "lucide-react";
 import NodeActionsMenu from "./nodeactionsmenu";
+import * as d3 from "d3";
 
 interface Node {
   id: string;
@@ -72,126 +73,177 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     const fg = fgRef.current;
     if (!fg) return;
 
-    // Clear the action menu when clicking a different node
     setActionMenuNode(null);
-
     setSelectedNodeId(node.id);
     setSelectedNode(node);
 
     const transitionDuration = 800;
     const CHAT_WIDTH = 400;
+    const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
 
     // Calculate the target center position
     const x = node.x || 0;
     const y = node.y || 0;
-    const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
 
     // Center and zoom
     const moveCamera = () => {
       fg.centerAt(x + offsetX, y, transitionDuration);
-      fg.zoom(2, transitionDuration);
+      fg.zoom(1.2, transitionDuration);  // Less zoom in
+
+      // Adjust forces when focusing on a node
+      fg.d3Force('charge')?.strength(-1500);  // Strong repulsion
+      fg.d3Force('link')
+        ?.distance(250)    // Large distance
+        ?.strength(0.4);   // Moderate link strength
+
+      fg.d3ReheatSimulation();
     };
 
     setTimeout(moveCamera, 0);
-}, [isChatOpen]);
+  }, [isChatOpen]);
 
-// Add onNodeRightClick handler
-const handleNodeRightClick = useCallback((node: Node, event: MouseEvent) => {
-  event.preventDefault(); // Prevent default context menu
-  const fg = fgRef.current;
-  if (!fg) return;
-  
-  // Get screen coordinates after the node is centered
-  const screenPos = fg.graph2ScreenCoords(node.x || 0, node.y || 0);
-  if (screenPos) {
-    setActionMenuNode({
-      x: screenPos.x,
-      y: screenPos.y,
-      node: node
-    });
-  }
-}, []);
-
-const handleBackgroundClick = useCallback(() => {
-  const fg = fgRef.current;
-  if (!fg || isEditing) return;
-  
-  // Clear both the selection and action menu
-  setActionMenuNode(null);
-  setSelectedNodeId(null);
-  setSelectedNode(null);
-
-  // Calculate center offset based on chat state
-  const CHAT_WIDTH = 400;
-  const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
-
-  // Reset zoom and center with offset
-  fg.centerAt(offsetX, 0, 1000);
-  fg.zoom(3, 1000);
-
-  // Reset forces to default values
-  fg.d3Force('charge')?.strength(-30);
-  fg.d3Force('link')?.distance(30);
-  
-  // Reheat the simulation
-  fg.d3ReheatSimulation();
-}, [isChatOpen, isEditing]);
-
-const handleStartEditing = () => {
-  if (selectedNode) {
-    setEditedDescription(selectedNode.description);
-    setIsEditing(true);
-  }
-};
-
-
-const handleSaveDescription = () => {
-  if (selectedNode && onNodeUpdate) {
+  // Add onNodeRightClick handler
+  const handleNodeRightClick = useCallback((node: Node, event: MouseEvent) => {
+    event.preventDefault(); // Prevent default context menu
     const fg = fgRef.current;
-    if (fg) {
-      // Store current force settings
-      const currentChargeForce = fg.d3Force('charge');
-      const currentLinkForce = fg.d3Force('link');
-
-      // Completely remove forces temporarily
-      fg.d3Force('charge', null);
-      fg.d3Force('link', null);
+    if (!fg) return;
+    
+    // Get screen coordinates after the node is centered
+    const screenPos = fg.graph2ScreenCoords(node.x || 0, node.y || 0);
+    if (screenPos) {
+      setActionMenuNode({
+        x: screenPos.x,
+        y: screenPos.y,
+        node: node
+      });
     }
+  }, []);
 
-    // Do the update
-    onNodeUpdate(selectedNode.id, { description: editedDescription });
-    setSelectedNode({ ...selectedNode, description: editedDescription });
+  const handleBackgroundClick = useCallback(() => {
+    const fg = fgRef.current;
+    if (!fg || isEditing) return;
+    
+    // Clear selections
+    setActionMenuNode(null);
+    setSelectedNodeId(null);
+    setSelectedNode(null);
+
+    // Calculate center offset based on chat state
+    const CHAT_WIDTH = 400;
+    const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+
+    // Reset zoom and center with offset
+    fg.centerAt(offsetX, 0, 1000);
+    fg.zoom(1, 1000);  // Even more zoomed out
+
+    // Release fixed positions
+    data.nodes.forEach(node => {
+      node.fx = undefined;
+      node.fy = undefined;
+    });
+
+    // Set very strong repulsive forces and large link distances
+    fg.d3Force('charge')?.strength(-2000);  // Much stronger repulsion
+    fg.d3Force('link')
+      ?.distance(300)     // Much larger distance
+      ?.strength(0.3);    // Even weaker links for more spread
+
+    // Weaker center force
+    fg.d3Force('center')
+      ?.strength(0.2);    // Very gentle centering force
+    
+    // Reheat the simulation with more energy
+    fg.d3ReheatSimulation();
+  }, [isChatOpen, isEditing, data.nodes]);
+
+  const handleStartEditing = () => {
+    if (selectedNode) {
+      setEditedDescription(selectedNode.description);
+      setIsEditing(true);
+    }
+  };
+
+
+  const handleSaveDescription = () => {
+    if (selectedNode && onNodeUpdate) {
+      const fg = fgRef.current;
+      if (fg) {
+        // Store current force settings
+        const currentChargeForce = fg.d3Force('charge');
+        const currentLinkForce = fg.d3Force('link');
+
+        // Completely remove forces temporarily
+        fg.d3Force('charge', null);
+        fg.d3Force('link', null);
+      }
+
+      // Do the update
+      onNodeUpdate(selectedNode.id, { description: editedDescription });
+      setSelectedNode({ ...selectedNode, description: editedDescription });
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
     setIsEditing(false);
-  }
-};
+    if (selectedNode) {
+      setEditedDescription(selectedNode.description);
+    }
+  };
 
-const handleCancelEdit = () => {
-  setIsEditing(false);
-  if (selectedNode) {
-    setEditedDescription(selectedNode.description);
-  }
-};
+  const cycleNodeStatus = useCallback((nodeId: string) => {
+    if (!onNodeUpdate) return;
+    const fg = fgRef.current;
+    if (!fg) return;
 
-const cycleNodeStatus = useCallback((nodeId: string) => {
-  if (!onNodeUpdate) return;
-  const fg = fgRef.current;
-  if (!fg) return;
+    const node = data.nodes.find(n => n.id === nodeId);
+    if (!node) return;
 
-  const node = data.nodes.find(n => n.id === nodeId);
-  if (!node) return;
+    const statusCycle = {
+      notStarted: 'inProgress',
+      inProgress: 'completed',
+      completed: 'notStarted'
+    } as const;
 
-  const statusCycle = {
-    notStarted: 'inProgress',
-    inProgress: 'completed',
-    completed: 'notStarted'
-  } as const;
+    const currentStatus = node.status || 'notStarted';
+    const nextStatus = statusCycle[currentStatus];
 
-  const currentStatus = node.status || 'notStarted';
-  const nextStatus = statusCycle[currentStatus];
+    // Pause the simulation
+    fg.pauseAnimation();
 
-  // Update the status
-  onNodeUpdate(nodeId, { status: nextStatus });
-}, [data.nodes, onNodeUpdate]);
+    // Find all connected nodes through links
+    const connectedNodeIds = new Set<string>();
+    data.links.forEach(link => {
+      if (link.source === nodeId) connectedNodeIds.add(link.target);
+      if (link.target === nodeId) connectedNodeIds.add(link.source);
+    });
+
+    // Update the status and fix positions for the changed node and its connections
+    onNodeUpdate(nodeId, { 
+      status: nextStatus,
+      fx: node.x,
+      fy: node.y
+    });
+
+    // Fix positions for connected nodes
+    connectedNodeIds.forEach(id => {
+      const connectedNode = data.nodes.find(n => n.id === id);
+      if (connectedNode && connectedNode.x !== undefined && connectedNode.y !== undefined) {
+        onNodeUpdate(id, {
+          fx: connectedNode.x,
+          fy: connectedNode.y
+        });
+      }
+    });
+
+    // Resume with adjusted forces
+    setTimeout(() => {
+      fg.d3Force('link')?.distance(400).strength(1);  // Increased distance
+      fg.d3Force('charge')?.strength(-300);           // Stronger repulsion
+      fg.resumeAnimation();
+    }, 100);
+
+  }, [data.nodes, data.links, onNodeUpdate]);
 
 
   return (
@@ -215,7 +267,7 @@ const cycleNodeStatus = useCallback((nodeId: string) => {
         nodeRelSize={8} 
         d3VelocityDecay={0.3}
         d3AlphaDecay={0.02}
-        cooldownTime={1000}
+        cooldownTime={3000}
         onEngineStop={() => {
           // Fix nodes in place after simulation stops
           data.nodes.forEach(node => {
@@ -225,6 +277,25 @@ const cycleNodeStatus = useCallback((nodeId: string) => {
         }}
         onNodeClick={handleNodeClick}
         onNodeRightClick={handleNodeRightClick}
+        onNodeDragStart={(node: Node) => {
+          fgRef.current?.d3ReheatSimulation();
+        }}
+        onNodeDrag={(node: Node) => {
+          // Keep the node fixed during drag
+          node.fx = node.x;
+          node.fy = node.y;
+        }}
+        onNodeDragEnd={(node: Node) => {
+          // Release the fixed position after drag
+          node.fx = undefined;
+          node.fy = undefined;
+          fgRef.current?.d3ReheatSimulation();
+        }}
+        linkDistance={250}           // Larger default link distance
+        linkStrength={0.4}          // Weaker default link strength
+        enableNodeDrag={false}
+        cooldownTicks={0}
+        warmupTicks={100}           // Added warmup ticks
         nodeCanvasObject={(node: Node, ctx: CanvasRenderingContext2D, globalScale: number) => {
           const label = node.name;
           const fontSize = 14/globalScale;
