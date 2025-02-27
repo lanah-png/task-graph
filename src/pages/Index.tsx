@@ -3,6 +3,8 @@ import TaskGraph from "@/components/TaskGraph";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ChatInterface from "@/components/ui/chat-interface";
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { app, functions } from '@/firebase';
 
 interface Message {
   id: string;
@@ -27,6 +29,19 @@ const Index = () => {
     },
   ]);
 
+      // Add the function to call Firebase
+  const callHelloWorld = async () => {
+    try {
+      const helloWorld = httpsCallable(functions, 'hello_world');
+      const result = await helloWorld();
+      console.log(result.data); // This will show the response in an alert
+    } catch (error) {
+      console.error('Error calling function:', error);
+      alert('Error calling function. Check console for details.');
+    }
+  };
+
+
   const handleTaskSubmit = async (task: string) => {
     // Add user message
     const userMessage: Message = {
@@ -48,7 +63,7 @@ const Index = () => {
       // status: 'new' | 'in-progress' | 'complete'
       // parentId?: string
       // childrenIds: string[]
-//}
+      //}
       const mockResponse = {
         nodes: [
           { id: "main", name: task, val: 20, color: "#8B5CF6" },
@@ -62,7 +77,7 @@ const Index = () => {
           { source: "main", target: "sub3" },
         ],
       };
-
+      callHelloWorld();
       setGraphData(mockResponse);
 
       // Add assistant response
