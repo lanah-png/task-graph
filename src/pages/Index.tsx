@@ -3,6 +3,8 @@ import TaskGraph from "@/components/TaskGraph";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ChatInterface from "@/components/ui/chat-interface";
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { app, functions } from '@/firebase';
 import DescriptionToggle from "@/components/ui/descriptiontoggle";
 
 interface Message {
@@ -42,6 +44,19 @@ const Index = () => {
     },
   ]);
 
+      // Add the function to call Firebase
+  const callHelloWorld = async () => {
+    try {
+      const helloWorld = httpsCallable(functions, 'hello_world');
+      const result = await helloWorld();
+      console.log(result.data); // This will show the response in an alert
+    } catch (error) {
+      console.error('Error calling function:', error);
+      alert('Error calling function. Check console for details.');
+    }
+  };
+
+
   const handleTaskSubmit = async (task: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -53,6 +68,16 @@ const Index = () => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
+      // Simulated API call
+
+      //interface TaskNode {
+      // id: string
+      // title: string
+      // description: string
+      // status: 'new' | 'in-progress' | 'complete'
+      // parentId?: string
+      // childrenIds: string[]
+      //}
       const mockResponse = {
         nodes: [ 
           { 
@@ -93,7 +118,7 @@ const Index = () => {
           { source: "main", target: "sub3" },
         ],
       };
-
+      callHelloWorld();
       setGraphData(mockResponse);
 
       const assistantMessage: Message = {
