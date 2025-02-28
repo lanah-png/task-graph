@@ -3,8 +3,8 @@ import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Check, X } from "lucide-react";
-import NodeActionsMenu from "./nodeactionsmenu";
-import * as d3 from "d3";
+//import NodeActionsMenu from "./nodeactionsmenu";
+//import * as d3 from "d3";
 
 interface Node {
   id: string;
