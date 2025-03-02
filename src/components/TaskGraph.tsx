@@ -1,9 +1,9 @@
 import React, { useCallback, useRef, useEffect, useState} from "react";
-import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
+import ForceGraph2D, { ForceGraphMethods, NodeObject } from "react-force-graph-2d";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Check, X } from "lucide-react";
-//import NodeActionsMenu from "./nodeactionsmenu";
+import NodeActionsMenu from "./NodeActionsMenu";
 //import * as d3 from "d3";
 
 interface Node {
@@ -69,13 +69,13 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  const handleNodeClick = useCallback((node: Node) => {
+  const handleNodeClick = useCallback((node: NodeObject) => {
     const fg = fgRef.current;
     if (!fg) return;
 
     setActionMenuNode(null);
-    setSelectedNodeId(node.id);
-    setSelectedNode(node);
+    setSelectedNodeId(node.id as string);
+    setSelectedNode(node as Node);
 
     const transitionDuration = 800;
     const CHAT_WIDTH = 400;
@@ -103,7 +103,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
   }, [isChatOpen]);
 
   // Add onNodeRightClick handler
-  const handleNodeRightClick = useCallback((node: Node, event: MouseEvent) => {
+  const handleNodeRightClick = useCallback((node: NodeObject, event: MouseEvent) => {
     event.preventDefault(); // Prevent default context menu
     const fg = fgRef.current;
     if (!fg) return;
@@ -114,7 +114,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       setActionMenuNode({
         x: screenPos.x,
         y: screenPos.y,
-        node: node
+        node: node as Node
       });
     }
   }, []);
@@ -255,13 +255,9 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         height={dimensions.height}
         onBackgroundClick={handleBackgroundClick}
         nodeLabel="name"
-        nodeColor={(node: Node) => {
-          console.log('Node color calculation:', {
-            id: node.id,
-            status: node.status,
-            color: STATUS_COLORS[node.status || 'notStarted']
-          });
-          return STATUS_COLORS[node.status || 'notStarted'];
+        nodeColor={(node) => {
+          const typedNode = node as Node;
+          return STATUS_COLORS[typedNode.status || 'notStarted'];
         }}
         linkColor={() => "#e2e8f0"}
         nodeRelSize={8} 
@@ -277,34 +273,34 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         }}
         onNodeClick={handleNodeClick}
         onNodeRightClick={handleNodeRightClick}
-        onNodeDragStart={(node: Node) => {
-          fgRef.current?.d3ReheatSimulation();
-        }}
-        onNodeDrag={(node: Node) => {
+        onNodeDrag={(node) => {
           // Keep the node fixed during drag
-          node.fx = node.x;
-          node.fy = node.y;
+          const typedNode = node as any;
+          typedNode.fx = typedNode.x;
+          typedNode.fy = typedNode.y;
         }}
-        onNodeDragEnd={(node: Node) => {
+        onNodeDragEnd={(node) => {
           // Release the fixed position after drag
-          node.fx = undefined;
-          node.fy = undefined;
+          const typedNode = node as any;
+          typedNode.fx = undefined;
+          typedNode.fy = undefined;
           fgRef.current?.d3ReheatSimulation();
         }}
-        linkDistance={250}           // Larger default link distance
-        linkStrength={0.4}          // Weaker default link strength
-        enableNodeDrag={false}
+        //linkDistance={250}           // Larger default link distance
+        //linkStrength={0.4}          // Weaker default link strength
+        enableNodeDrag={true}
         cooldownTicks={0}
         warmupTicks={100}           // Added warmup ticks
-        nodeCanvasObject={(node: Node, ctx: CanvasRenderingContext2D, globalScale: number) => {
-          const label = node.name;
+        nodeCanvasObject={(node, ctx, globalScale) => {
+          const typedNode = node as Node;
+          const label = typedNode.name;
           const fontSize = 14/globalScale;
           ctx.font = `${fontSize}px Inter, Sans-Serif`;
           const textWidth = ctx.measureText(label).width;
           const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.8);
 
           // Draw node background with status color
-          ctx.fillStyle = STATUS_COLORS[node.status || 'notStarted'];
+          ctx.fillStyle = STATUS_COLORS[typedNode.status || 'notStarted'];
           ctx.fillRect(
             node.x! - bckgDimensions[0] / 2,
             node.y! - bckgDimensions[1] / 2,
@@ -313,7 +309,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
           );
 
           // Draw highlight if node is selected
-          if (node.id === selectedNodeId) {
+          if (typedNode.id === selectedNodeId) {
             ctx.strokeStyle = "#4f46e5";
             ctx.lineWidth = 3/globalScale;
             ctx.strokeRect(
@@ -342,7 +338,6 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         onDeleteTask={() => console.log('Delete task')}
         onEditTask={() => console.log('Edit task')}
         onChangeStatus={() => {
-          console.log('Change status clicked for node:', actionMenuNode.node.id);
           cycleNodeStatus(actionMenuNode.node.id);
         }}
       />
