@@ -10,7 +10,7 @@ import dspy
 initialize_app()  # Initialize Firebase Admin SDK
 
 # Then access it like this
-api_key = StringParam('OPENAI_API_KEY')
+api_key = str(StringParam('OPENAI_API_KEY'))
 
 # Use in your DSPy code
 lm = dspy.LM('openai/gpt-4o-mini', api_key=api_key)
