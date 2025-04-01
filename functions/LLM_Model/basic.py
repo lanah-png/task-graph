@@ -3,14 +3,17 @@ import dspy
 
 class Base:
     def __init__(self):
-        api_key = StringParam('OPENAI_API_KEY')
+        firebase_key = StringParam('OPENAI_API_KEY')
 
         # Use in your DSPy code
-        lm = dspy.LM('openai/gpt-4o-mini', api_key=str(api_key))
+        lm = dspy.LM('openai/gpt-4o-mini', api_key=firebase_key.value)
         dspy.configure(lm=lm)
     
     def query(self, query):
-        math = dspy.Predict("question -> break down of task")
+        math = dspy.dspy.ChainOfThought("question -> answer: str")
         result = math(question = query)
         print(result)
         return result
+    
+    def do_this(self):
+        return self.api_key.value

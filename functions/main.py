@@ -14,6 +14,6 @@ dog = Base()
 @https_fn.on_call()
 def hello_world(req: https_fn.CallableRequest) -> https_fn.Response:
     
-    result = dog.query("I want to go shopping for my sister's birthday")
+    result = dog.query("If I went shopping at 3pm and I got home at 5pm how long was I out?")
     print(result)
     return {"data": str(result)}

@@ -21,8 +21,7 @@
         "venv",
         ".git",
         "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
+        "firebase-debug.*.log"
       ]
     }
   ],
