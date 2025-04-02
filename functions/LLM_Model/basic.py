@@ -10,9 +10,9 @@ class Base:
         dspy.configure(lm=lm)
     
     def query(self, query):
-        math = dspy.dspy.ChainOfThought("question -> answer: str")
-        result = math(question = query)
-        print(result)
+        math = dspy.Predict("chat_history -> response: str")
+        result = math(chat_history = str(query))
+        print(result.response)
         return result
     
     def do_this(self):

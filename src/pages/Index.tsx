@@ -14,6 +14,10 @@ interface Message {
   timestamp: Date;
 }
 
+interface AIResponse {
+  message_response: string;
+}
+
 interface Node {
   id: string;
   name: string;
@@ -64,12 +68,18 @@ const Index = () => {
       content: task,
       timestamp: new Date(),
     };
-    
-    setMessages(prev => [...prev, userMessage]);
+
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
 
     try {
       // Simulated API call
-
+      const helloWorld = httpsCallable(functions, 'hello_world');
+      // Send the updated chat history along with the new user message
+      const result = await helloWorld({ chatHistory: newMessages });
+      
+      // Make sure the response content is a string.
+      const responseContent = result.data as AIResponse;
       //interface TaskNode {
       // id: string
       // title: string
@@ -118,13 +128,13 @@ const Index = () => {
           { source: "main", target: "sub3" },
         ],
       };
-      callHelloWorld();
+
       setGraphData(mockResponse);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `I've broken down "${task}" into several subtasks. You can see them in the graph. Click on any node to see its detailed description. Would you like to break down any of these subtasks further?`,
+        content: responseContent.message_response,
         timestamp: new Date(),
       };
       
