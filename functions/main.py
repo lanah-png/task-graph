@@ -5,8 +5,18 @@ import dspy
 
 initialize_app()  # Initialize Firebase Admin SDK
 
+<<<<<<< HEAD
 # Define the parameter with a default value (can be empty for required parameters)
 api_key = StringParam("OPENAI_KEY", default="")
+=======
+# Then access it like this
+api_key = str(StringParam('OPENAI_API_KEY'))
+
+# Use in your DSPy code
+lm = dspy.LM('openai/gpt-4o-mini', api_key=api_key)
+dspy.configure(lm=lm)
+math = dspy.ChainOfThought("question -> answer: float")
+>>>>>>> c43288ae616e61adbfdab75a61e06deade1e5b4c
 
 @https_fn.on_call()
 def hello_world(req: https_fn.CallableRequest) -> https_fn.Response:

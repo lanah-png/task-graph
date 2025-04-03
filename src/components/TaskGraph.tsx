@@ -201,16 +201,6 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       links: data.links.map(link => ({...link}))
     };
     
-    // Ensure all links use string IDs instead of object references
-    refreshedData.links.forEach(link => {
-      if (typeof link.source === 'object' && link.source !== null) {
-        link.source = link.source.id || link.source;
-      }
-      if (typeof link.target === 'object' && link.target !== null) {
-        link.target = link.target.id || link.target;
-      }
-    });
-    
     // Update the graph with the refreshed data
     (fgRef.current as any).graphData(refreshedData);
     fgRef.current.d3ReheatSimulation();
