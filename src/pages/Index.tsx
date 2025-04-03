@@ -93,7 +93,7 @@ const Index = () => {
             name: "Subtask 1", 
             val: 10, 
             color: "#D946EF",
-            description: "First component of the task that needs to be addressed. This subtask focuses on the initial phase."
+            description: "One of the first components of the task that the user can address."
           },
           { 
             id: "sub2", 
@@ -101,7 +101,7 @@ const Index = () => {
             val: 10, 
             color: "#F97316",
             status: 'notStarted',
-            description: "Second key component that builds upon the first subtask. This phase handles the core implementation."
+            description: "Another example of one of the first components of the task that the user can address."
           },
           { 
             id: "sub3", 
@@ -109,7 +109,7 @@ const Index = () => {
             val: 10, 
             color: "#0EA5E9",
             status: 'notStarted',
-            description: "Final phase of the task that brings everything together. This ensures all components are properly integrated."
+            description: "A third example of one of the first components of the task that the user can address."
           },
         ],
         links: [
