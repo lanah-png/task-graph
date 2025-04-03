@@ -133,53 +133,26 @@ const Index = () => {
       console.error("Error processing task:", error);
     }
   };
-  const handleNodeUpdate = (nodeId: string, updates: Partial<Node>) => {
-    setGraphData(prevData => {
-      const updatedNodes = prevData.nodes.map(node => {
-        if (node.id === nodeId) {
-          // Determine the next status
-          let nextStatus: 'notStarted' | 'inProgress' | 'completed';
-          let nextColor: string;
-          
-          if (updates.status) {
-            // If we're updating status, cycle through the states
-            switch (node.status) {
-              case 'notStarted':
-                nextStatus = 'inProgress';
-                nextColor = '#FCD34D'; // yellow
-                break;
-              case 'inProgress':
-                nextStatus = 'completed';
-                nextColor = '#4ADE80'; // green
-                break;
-              case 'completed':
-                nextStatus = 'notStarted';
-                nextColor = node.color || '#8B5CF6'; // original color
-                break;
-              default:
-                nextStatus = 'inProgress';
-                nextColor = '#FCD34D';
-            }
-            
-            return {
-              ...node,
-              ...updates,
-              status: nextStatus,
-              color: nextColor,
-            };
-          }
-          
-          // For other updates, just merge them normally
-          return { ...node, ...updates };
-        }
-        return node;
-      });
-
-      return {
+  const handleNodeUpdate = (nodeId: string, updates: any) => {
+    // Check if this is a special "add subtask" action
+    if (updates.__action === 'addSubtask') {
+      // Extract the new task and link from the updates
+      const { newTask, newLink } = updates;
+      
+      // Update the graph data to include the new node and link
+      setGraphData(prevData => ({
+        nodes: [...prevData.nodes, newTask],
+        links: [...prevData.links, newLink]
+      }));
+    } else {
+      // Handle regular node updates (status, name, description, etc.)
+      setGraphData(prevData => ({
         ...prevData,
-        nodes: updatedNodes,
-      };
-    });
+        nodes: prevData.nodes.map(node => 
+          node.id === nodeId ? { ...node, ...updates } : node
+        )
+      }));
+    }
   };
 
   return (
