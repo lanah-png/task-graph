@@ -191,6 +191,22 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     }
   };
 
+  // Add this helper function to your component
+  const refreshGraphWithLinks = useCallback(() => {
+    if (!fgRef.current) return;
+    
+    // Create a fresh copy of the data
+    const refreshedData = {
+      nodes: data.nodes.map(node => ({...node})),
+      links: data.links.map(link => ({...link}))
+    };
+    
+    // Update the graph with the refreshed data
+    (fgRef.current as any).graphData(refreshedData);
+    fgRef.current.d3ReheatSimulation();
+  }, [data]);
+
+  // Modify the cycleNodeStatus function to ensure links are properly maintained
   const cycleNodeStatus = useCallback((nodeId: string) => {
     if (!onNodeUpdate) return;
     const fg = fgRef.current;
@@ -208,41 +224,57 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     const currentStatus = node.status || 'notStarted';
     const nextStatus = statusCycle[currentStatus];
 
-    // Pause the simulation
-    fg.pauseAnimation();
-
-    // Find all connected nodes through links
-    const connectedNodeIds = new Set<string>();
-    data.links.forEach(link => {
-      if (link.source === nodeId) connectedNodeIds.add(link.target);
-      if (link.target === nodeId) connectedNodeIds.add(link.source);
-    });
-
-    // Update the status and fix positions for the changed node and its connections
+    // Update the status
     onNodeUpdate(nodeId, { 
       status: nextStatus,
       fx: node.x,
       fy: node.y
     });
-
-    // Fix positions for connected nodes
-    connectedNodeIds.forEach(id => {
-      const connectedNode = data.nodes.find(n => n.id === id);
-      if (connectedNode && connectedNode.x !== undefined && connectedNode.y !== undefined) {
-        onNodeUpdate(id, {
-          fx: connectedNode.x,
-          fy: connectedNode.y
-        });
+    
+    // Store the current node positions to maintain them during refresh
+    const nodePositions = new Map();
+    data.nodes.forEach(n => {
+      if (n.x !== undefined && n.y !== undefined) {
+        nodePositions.set(n.id, { x: n.x, y: n.y, fx: n.x, fy: n.y });
       }
     });
-
-    // Resume with adjusted forces
+    
+    // Use setTimeout to ensure this runs after the state update
     setTimeout(() => {
-      fg.d3Force('link')?.distance(400).strength(1);  // Increased distance
-      fg.d3Force('charge')?.strength(-300);           // Stronger repulsion
-      fg.resumeAnimation();
-    }, 100);
-
+      if (!fgRef.current) return;
+      
+      // Create a fresh copy of the data with proper link references
+      const refreshedData = {
+        nodes: [...data.nodes],
+        links: [...data.links]
+      };
+      
+      // Ensure all links use string IDs
+      refreshedData.links.forEach(link => {
+        if (typeof link.source === 'object' && link.source !== null) {
+          link.source = (link.source as any).id || link.source;
+        }
+        if (typeof link.target === 'object' && link.target !== null) {
+          link.target = (link.target as any).id || link.target;
+        }
+      });
+      
+      // Restore node positions
+      refreshedData.nodes.forEach(n => {
+        const pos = nodePositions.get(n.id);
+        if (pos) {
+          n.x = pos.x;
+          n.y = pos.y;
+          n.fx = pos.fx;
+          n.fy = pos.fy;
+        }
+      });
+      
+      // Update the graph with the refreshed data
+      (fgRef.current as any).graphData(refreshedData);
+      fgRef.current.d3ReheatSimulation();
+    }, 0);
+    
   }, [data.nodes, data.links, onNodeUpdate]);
 
 
@@ -275,16 +307,29 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         onNodeRightClick={handleNodeRightClick}
         onNodeDrag={(node) => {
           // Keep the node fixed during drag
-          const typedNode = node as any;
+          const typedNode = node as Node;
           typedNode.fx = typedNode.x;
           typedNode.fy = typedNode.y;
+          
+          // Reheat the simulation for smooth interaction
+          fgRef.current?.d3ReheatSimulation();
         }}
         onNodeDragEnd={(node) => {
-          // Release the fixed position after drag
-          const typedNode = node as any;
-          typedNode.fx = undefined;
-          typedNode.fy = undefined;
-          fgRef.current?.d3ReheatSimulation();
+          // After drag ends, update the node in the data structure
+          const typedNode = node as Node;
+          
+          // Find the node in the data array and update it
+          const nodeIndex = data.nodes.findIndex(n => n.id === typedNode.id);
+          if (nodeIndex >= 0) {
+            // Update the node with its new position
+            data.nodes[nodeIndex].x = typedNode.x;
+            data.nodes[nodeIndex].y = typedNode.y;
+            data.nodes[nodeIndex].fx = typedNode.x;
+            data.nodes[nodeIndex].fy = typedNode.y;
+          }
+          
+          // Use the helper function to refresh the graph
+          setTimeout(refreshGraphWithLinks, 0);
         }}
         //linkDistance={250}           // Larger default link distance
         //linkStrength={0.4}          // Weaker default link strength
