@@ -53,6 +53,9 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
   const [isEditing, setIsEditing] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
   const [actionMenuNode, setActionMenuNode] = useState<{x: number, y: number, node: Node} | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [editingNode, setEditingNode] = useState<Node | null>(null);
   
 
   useEffect(() => {
@@ -166,21 +169,60 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
   const handleSaveDescription = () => {
     if (selectedNode && onNodeUpdate) {
-      const fg = fgRef.current;
-      if (fg) {
-        // Store current force settings
-        const currentChargeForce = fg.d3Force('charge');
-        const currentLinkForce = fg.d3Force('link');
-
-        // Completely remove forces temporarily
-        fg.d3Force('charge', null);
-        fg.d3Force('link', null);
-      }
-
-      // Do the update
-      onNodeUpdate(selectedNode.id, { description: editedDescription });
+      // Update the description through onNodeUpdate
+      onNodeUpdate(selectedNode.id, { 
+        description: editedDescription,
+        fx: selectedNode.x,
+        fy: selectedNode.y
+      });
+      
+      // Update the local state
       setSelectedNode({ ...selectedNode, description: editedDescription });
       setIsEditing(false);
+      
+      // Store the current node positions to maintain them during refresh
+      const nodePositions = new Map();
+      data.nodes.forEach(n => {
+        if (n.x !== undefined && n.y !== undefined) {
+          nodePositions.set(n.id, { x: n.x, y: n.y, fx: n.x, fy: n.y });
+        }
+      });
+      
+      // Use setTimeout to ensure this runs after the state update
+      setTimeout(() => {
+        if (!fgRef.current) return;
+        
+        // Create a fresh copy of the data with proper link references
+        const refreshedData = {
+          nodes: [...data.nodes],
+          links: [...data.links]
+        };
+        
+        // Ensure all links use string IDs
+        refreshedData.links.forEach(link => {
+          if (typeof link.source === 'object' && link.source !== null) {
+            link.source = (link.source as any).id || link.source;
+          }
+          if (typeof link.target === 'object' && link.target !== null) {
+            link.target = (link.target as any).id || link.target;
+          }
+        });
+        
+        // Restore node positions
+        refreshedData.nodes.forEach(n => {
+          const pos = nodePositions.get(n.id);
+          if (pos) {
+            n.x = pos.x;
+            n.y = pos.y;
+            n.fx = pos.fx;
+            n.fy = pos.fy;
+          }
+        });
+        
+        // Update the graph with the refreshed data
+        (fgRef.current as any).graphData(refreshedData);
+        fgRef.current.d3ReheatSimulation();
+      }, 0);
     }
   };
 
@@ -277,6 +319,81 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     
   }, [data.nodes, data.links, onNodeUpdate]);
 
+  // Add these functions to handle name editing
+  const handleStartEditingName = (node: Node) => {
+    setEditingNode(node);
+    setEditedName(node.name);
+    setIsEditingName(true);
+    setActionMenuNode(null); // Close the action menu
+  };
+
+  const handleSaveName = () => {
+    if (editingNode && onNodeUpdate) {
+      onNodeUpdate(editingNode.id, { 
+        name: editedName,
+        fx: editingNode.x,
+        fy: editingNode.y
+      });
+      
+      // Update the node in the data array
+      const nodeIndex = data.nodes.findIndex(n => n.id === editingNode.id);
+      if (nodeIndex >= 0) {
+        data.nodes[nodeIndex].name = editedName;
+      }
+      
+      setIsEditingName(false);
+      setEditingNode(null);
+      
+      // Store the current node positions to maintain them during refresh
+      const nodePositions = new Map();
+      data.nodes.forEach(n => {
+        if (n.x !== undefined && n.y !== undefined) {
+          nodePositions.set(n.id, { x: n.x, y: n.y, fx: n.x, fy: n.y });
+        }
+      });
+      
+      // Use setTimeout to ensure this runs after the state update
+      setTimeout(() => {
+        if (!fgRef.current) return;
+        
+        // Create a fresh copy of the data with proper link references
+        const refreshedData = {
+          nodes: [...data.nodes],
+          links: [...data.links]
+        };
+        
+        // Ensure all links use string IDs
+        refreshedData.links.forEach(link => {
+          if (typeof link.source === 'object' && link.source !== null) {
+            link.source = (link.source as any).id || link.source;
+          }
+          if (typeof link.target === 'object' && link.target !== null) {
+            link.target = (link.target as any).id || link.target;
+          }
+        });
+        
+        // Restore node positions
+        refreshedData.nodes.forEach(n => {
+          const pos = nodePositions.get(n.id);
+          if (pos) {
+            n.x = pos.x;
+            n.y = pos.y;
+            n.fx = pos.fx;
+            n.fy = pos.fy;
+          }
+        });
+        
+        // Update the graph with the refreshed data
+        (fgRef.current as any).graphData(refreshedData);
+        fgRef.current.d3ReheatSimulation();
+      }, 0);
+    }
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    setEditingNode(null);
+  };
 
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
@@ -381,7 +498,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         y={actionMenuNode.y}
         onAddTask={() => console.log('Add task')}
         onDeleteTask={() => console.log('Delete task')}
-        onEditTask={() => console.log('Edit task')}
+        onEditTask={() => handleStartEditingName(actionMenuNode.node)}
         onChangeStatus={() => {
           cycleNodeStatus(actionMenuNode.node.id);
         }}
@@ -439,6 +556,30 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Name Editing Modal */}
+      {isEditingName && editingNode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-medium mb-4">Edit Task Name</h3>
+            <input
+              type="text"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleCancelEditName}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveName}>
+                Save
+              </Button>
+            </div>
           </div>
         </div>
       )}
