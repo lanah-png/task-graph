@@ -91,7 +91,7 @@ const Index = () => {
             name: "Subtask 1", 
             val: 10, 
             color: "#D946EF",
-            description: "First component of the task that needs to be addressed. This subtask focuses on the initial phase."
+            description: "One of the first components of the task that the user can address."
           },
           { 
             id: "sub2", 
@@ -99,7 +99,7 @@ const Index = () => {
             val: 10, 
             color: "#F97316",
             status: 'notStarted',
-            description: "Second key component that builds upon the first subtask. This phase handles the core implementation."
+            description: "Another example of one of the first components of the task that the user can address."
           },
           { 
             id: "sub3", 
@@ -107,7 +107,7 @@ const Index = () => {
             val: 10, 
             color: "#0EA5E9",
             status: 'notStarted',
-            description: "Final phase of the task that brings everything together. This ensures all components are properly integrated."
+            description: "A third example of one of the first components of the task that the user can address."
           },
         ],
         links: [
@@ -131,53 +131,38 @@ const Index = () => {
       console.error("Error processing task:", error);
     }
   };
-  const handleNodeUpdate = (nodeId: string, updates: Partial<Node>) => {
-    setGraphData(prevData => {
-      const updatedNodes = prevData.nodes.map(node => {
-        if (node.id === nodeId) {
-          // Determine the next status
-          let nextStatus: 'notStarted' | 'inProgress' | 'completed';
-          let nextColor: string;
-          
-          if (updates.status) {
-            // If we're updating status, cycle through the states
-            switch (node.status) {
-              case 'notStarted':
-                nextStatus = 'inProgress';
-                nextColor = '#FCD34D'; // yellow
-                break;
-              case 'inProgress':
-                nextStatus = 'completed';
-                nextColor = '#4ADE80'; // green
-                break;
-              case 'completed':
-                nextStatus = 'notStarted';
-                nextColor = node.color || '#8B5CF6'; // original color
-                break;
-              default:
-                nextStatus = 'inProgress';
-                nextColor = '#FCD34D';
-            }
-            
-            return {
-              ...node,
-              ...updates,
-              status: nextStatus,
-              color: nextColor,
-            };
-          }
-          
-          // For other updates, just merge them normally
-          return { ...node, ...updates };
-        }
-        return node;
-      });
-
-      return {
+  const handleNodeUpdate = (nodeId: string, updates: any) => {
+    // Check if this is a special action
+    if (updates.__action === 'addSubtask') {
+      // Extract the new task and link from the updates
+      const { newTask, newLink } = updates;
+      
+      // Update the graph data to include the new node and link
+      setGraphData(prevData => ({
+        nodes: [...prevData.nodes, newTask],
+        links: [...prevData.links, newLink]
+      }));
+    } else if (updates.__action === 'deleteNodes') {
+      // Extract the node IDs to delete
+      const { nodeIds } = updates;
+      
+      // Update the graph data to remove the nodes and their links
+      setGraphData(prevData => ({
+        nodes: prevData.nodes.filter(node => !nodeIds.includes(node.id)),
+        links: prevData.links.filter(link => 
+          !nodeIds.includes(typeof link.source === 'string' ? link.source : link.source.id) && 
+          !nodeIds.includes(typeof link.target === 'string' ? link.target : link.target.id)
+        )
+      }));
+    } else {
+      // Handle regular node updates (status, name, description, etc.)
+      setGraphData(prevData => ({
         ...prevData,
-        nodes: updatedNodes,
-      };
-    });
+        nodes: prevData.nodes.map(node => 
+          node.id === nodeId ? { ...node, ...updates } : node
+        )
+      }));
+    }
   };
 
   return (

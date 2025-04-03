@@ -53,6 +53,16 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
   const [isEditing, setIsEditing] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
   const [actionMenuNode, setActionMenuNode] = useState<{x: number, y: number, node: Node} | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [editingNode, setEditingNode] = useState<Node | null>(null);
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskName, setNewTaskName] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [parentNode, setParentNode] = useState<Node | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState<Node | null>(null);
+  const [affectedNodes, setAffectedNodes] = useState<Node[]>([]);
   
 
   useEffect(() => {
@@ -134,7 +144,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
     // Reset zoom and center with offset
     fg.centerAt(offsetX, 0, 1000);
-    fg.zoom(1, 1000);  // Even more zoomed out
+    fg.zoom(0.8, 1000);  // More zoomed out to see the whole graph
 
     // Release fixed positions
     data.nodes.forEach(node => {
@@ -142,15 +152,15 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       node.fy = undefined;
     });
 
-    // Set very strong repulsive forces and large link distances
-    fg.d3Force('charge')?.strength(-2000);  // Much stronger repulsion
+    // Set even stronger repulsive forces and larger link distances
+    fg.d3Force('charge')?.strength(-3000);  // Much stronger repulsion (was -2000)
     fg.d3Force('link')
-      ?.distance(300)     // Much larger distance
-      ?.strength(0.3);    // Even weaker links for more spread
+      ?.distance(400)     // Much larger distance (was 300)
+      ?.strength(0.2);    // Even weaker links for more spread (was 0.3)
 
     // Weaker center force
     fg.d3Force('center')
-      ?.strength(0.2);    // Very gentle centering force
+      ?.strength(0.1);    // Very gentle centering force (was 0.2)
     
     // Reheat the simulation with more energy
     fg.d3ReheatSimulation();
@@ -166,21 +176,60 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
   const handleSaveDescription = () => {
     if (selectedNode && onNodeUpdate) {
-      const fg = fgRef.current;
-      if (fg) {
-        // Store current force settings
-        const currentChargeForce = fg.d3Force('charge');
-        const currentLinkForce = fg.d3Force('link');
-
-        // Completely remove forces temporarily
-        fg.d3Force('charge', null);
-        fg.d3Force('link', null);
-      }
-
-      // Do the update
-      onNodeUpdate(selectedNode.id, { description: editedDescription });
+      // Update the description through onNodeUpdate
+      onNodeUpdate(selectedNode.id, { 
+        description: editedDescription,
+        fx: selectedNode.x,
+        fy: selectedNode.y
+      });
+      
+      // Update the local state
       setSelectedNode({ ...selectedNode, description: editedDescription });
       setIsEditing(false);
+      
+      // Store the current node positions to maintain them during refresh
+      const nodePositions = new Map();
+      data.nodes.forEach(n => {
+        if (n.x !== undefined && n.y !== undefined) {
+          nodePositions.set(n.id, { x: n.x, y: n.y, fx: n.x, fy: n.y });
+        }
+      });
+      
+      // Use setTimeout to ensure this runs after the state update
+      setTimeout(() => {
+        if (!fgRef.current) return;
+        
+        // Create a fresh copy of the data with proper link references
+        const refreshedData = {
+          nodes: [...data.nodes],
+          links: [...data.links]
+        };
+        
+        // Ensure all links use string IDs
+        refreshedData.links.forEach(link => {
+          if (typeof link.source === 'object' && link.source !== null) {
+            link.source = (link.source as any).id || link.source;
+          }
+          if (typeof link.target === 'object' && link.target !== null) {
+            link.target = (link.target as any).id || link.target;
+          }
+        });
+        
+        // Restore node positions
+        refreshedData.nodes.forEach(n => {
+          const pos = nodePositions.get(n.id);
+          if (pos) {
+            n.x = pos.x;
+            n.y = pos.y;
+            n.fx = pos.fx;
+            n.fy = pos.fy;
+          }
+        });
+        
+        // Update the graph with the refreshed data
+        (fgRef.current as any).graphData(refreshedData);
+        fgRef.current.d3ReheatSimulation();
+      }, 0);
     }
   };
 
@@ -191,6 +240,22 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     }
   };
 
+  // Add this helper function to your component
+  const refreshGraphWithLinks = useCallback(() => {
+    if (!fgRef.current) return;
+    
+    // Create a fresh copy of the data
+    const refreshedData = {
+      nodes: data.nodes.map(node => ({...node})),
+      links: data.links.map(link => ({...link}))
+    };
+    
+    // Update the graph with the refreshed data
+    (fgRef.current as any).graphData(refreshedData);
+    fgRef.current.d3ReheatSimulation();
+  }, [data]);
+
+  // Modify the cycleNodeStatus function to ensure links are properly maintained
   const cycleNodeStatus = useCallback((nodeId: string) => {
     if (!onNodeUpdate) return;
     const fg = fgRef.current;
@@ -208,43 +273,293 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     const currentStatus = node.status || 'notStarted';
     const nextStatus = statusCycle[currentStatus];
 
-    // Pause the simulation
-    fg.pauseAnimation();
-
-    // Find all connected nodes through links
-    const connectedNodeIds = new Set<string>();
-    data.links.forEach(link => {
-      if (link.source === nodeId) connectedNodeIds.add(link.target);
-      if (link.target === nodeId) connectedNodeIds.add(link.source);
-    });
-
-    // Update the status and fix positions for the changed node and its connections
+    // Update the status
     onNodeUpdate(nodeId, { 
       status: nextStatus,
       fx: node.x,
       fy: node.y
     });
-
-    // Fix positions for connected nodes
-    connectedNodeIds.forEach(id => {
-      const connectedNode = data.nodes.find(n => n.id === id);
-      if (connectedNode && connectedNode.x !== undefined && connectedNode.y !== undefined) {
-        onNodeUpdate(id, {
-          fx: connectedNode.x,
-          fy: connectedNode.y
-        });
+    
+    // Store the current node positions to maintain them during refresh
+    const nodePositions = new Map();
+    data.nodes.forEach(n => {
+      if (n.x !== undefined && n.y !== undefined) {
+        nodePositions.set(n.id, { x: n.x, y: n.y, fx: n.x, fy: n.y });
       }
     });
-
-    // Resume with adjusted forces
+    
+    // Use setTimeout to ensure this runs after the state update
     setTimeout(() => {
-      fg.d3Force('link')?.distance(400).strength(1);  // Increased distance
-      fg.d3Force('charge')?.strength(-300);           // Stronger repulsion
-      fg.resumeAnimation();
-    }, 100);
-
+      if (!fgRef.current) return;
+      
+      // Create a fresh copy of the data with proper link references
+      const refreshedData = {
+        nodes: [...data.nodes],
+        links: [...data.links]
+      };
+      
+      // Ensure all links use string IDs
+      refreshedData.links.forEach(link => {
+        if (typeof link.source === 'object' && link.source !== null) {
+          link.source = (link.source as any).id || link.source;
+        }
+        if (typeof link.target === 'object' && link.target !== null) {
+          link.target = (link.target as any).id || link.target;
+        }
+      });
+      
+      // Restore node positions
+      refreshedData.nodes.forEach(n => {
+        const pos = nodePositions.get(n.id);
+        if (pos) {
+          n.x = pos.x;
+          n.y = pos.y;
+          n.fx = pos.fx;
+          n.fy = pos.fy;
+        }
+      });
+      
+      // Update the graph with the refreshed data
+      (fgRef.current as any).graphData(refreshedData);
+      fgRef.current.d3ReheatSimulation();
+    }, 0);
+    
   }, [data.nodes, data.links, onNodeUpdate]);
 
+  // Add these functions to handle name editing
+  const handleStartEditingName = (node: Node) => {
+    setEditingNode(node);
+    setEditedName(node.name);
+    setIsEditingName(true);
+    setActionMenuNode(null); // Close the action menu
+  };
+
+  const handleSaveName = () => {
+    if (editingNode && onNodeUpdate) {
+      onNodeUpdate(editingNode.id, { 
+        name: editedName,
+        fx: editingNode.x,
+        fy: editingNode.y
+      });
+      
+      // Update the node in the data array
+      const nodeIndex = data.nodes.findIndex(n => n.id === editingNode.id);
+      if (nodeIndex >= 0) {
+        data.nodes[nodeIndex].name = editedName;
+      }
+      
+      setIsEditingName(false);
+      setEditingNode(null);
+      
+      // Store the current node positions to maintain them during refresh
+      const nodePositions = new Map();
+      data.nodes.forEach(n => {
+        if (n.x !== undefined && n.y !== undefined) {
+          nodePositions.set(n.id, { x: n.x, y: n.y, fx: n.x, fy: n.y });
+        }
+      });
+      
+      // Use setTimeout to ensure this runs after the state update
+      setTimeout(() => {
+        if (!fgRef.current) return;
+        
+        // Create a fresh copy of the data with proper link references
+        const refreshedData = {
+          nodes: [...data.nodes],
+          links: [...data.links]
+        };
+        
+        // Ensure all links use string IDs
+        refreshedData.links.forEach(link => {
+          if (typeof link.source === 'object' && link.source !== null) {
+            link.source = (link.source as any).id || link.source;
+          }
+          if (typeof link.target === 'object' && link.target !== null) {
+            link.target = (link.target as any).id || link.target;
+          }
+        });
+        
+        // Restore node positions
+        refreshedData.nodes.forEach(n => {
+          const pos = nodePositions.get(n.id);
+          if (pos) {
+            n.x = pos.x;
+            n.y = pos.y;
+            n.fx = pos.fx;
+            n.fy = pos.fy;
+          }
+        });
+        
+        // Update the graph with the refreshed data
+        (fgRef.current as any).graphData(refreshedData);
+        fgRef.current.d3ReheatSimulation();
+      }, 0);
+    }
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    setEditingNode(null);
+  };
+
+  // Add this function to handle starting the add task process
+  const handleStartAddingTask = (parentNode: Node) => {
+    setParentNode(parentNode);
+    setNewTaskName("");
+    setNewTaskDescription("");
+    setIsAddingTask(true);
+    setActionMenuNode(null); // Close the action menu
+  };
+
+  // Add this function to handle saving the new task
+  const handleSaveNewTask = () => {
+    if (!parentNode || !onNodeUpdate) return;
+    
+    // Generate a unique ID for the new task
+    const newTaskId = `task-${Date.now()}`;
+    
+    // Create the new task node
+    const newTask: Node = {
+      id: newTaskId,
+      name: newTaskName,
+      description: newTaskDescription,
+      val: 1,
+      status: 'notStarted',
+      // Position it near the parent node with a slight offset
+      x: (parentNode.x || 0) + 50,
+      y: (parentNode.y || 0) + 50,
+      fx: (parentNode.x || 0) + 50,
+      fy: (parentNode.y || 0) + 50
+    };
+    
+    // Create a new link from parent to the new task
+    const newLink: Link = {
+      source: parentNode.id,
+      target: newTaskId
+    };
+    
+    // Update the data with the new node and link
+    const updatedNodes = [...data.nodes, newTask];
+    const updatedLinks = [...data.links, newLink];
+    
+    // Call onNodeUpdate with a special action to add a new task
+    // This requires modifying the parent component to handle this special case
+    onNodeUpdate(parentNode.id, {
+      __action: 'addSubtask',
+      newTask,
+      newLink
+    } as any);
+    
+    // Close the modal
+    setIsAddingTask(false);
+    setParentNode(null);
+    
+    // Refresh the graph to ensure links are properly maintained
+    setTimeout(() => {
+      if (!fgRef.current) return;
+      
+      // Create a fresh copy of the data with proper link references
+      const refreshedData = {
+        nodes: updatedNodes,
+        links: updatedLinks
+      };
+      
+      // Ensure all links use string IDs
+      refreshedData.links.forEach(link => {
+        if (typeof link.source === 'object' && link.source !== null) {
+          link.source = (link.source as any).id || link.source;
+        }
+        if (typeof link.target === 'object' && link.target !== null) {
+          link.target = (link.target as any).id || link.target;
+        }
+      });
+      
+      // Update the graph with the refreshed data
+      (fgRef.current as any).graphData(refreshedData);
+      fgRef.current.d3ReheatSimulation();
+    }, 0);
+  };
+
+  // Add this function to handle canceling the add task process
+  const handleCancelAddTask = () => {
+    setIsAddingTask(false);
+    setParentNode(null);
+  };
+
+  // Fix the findDescendantNodes function
+  const findDescendantNodes = useCallback((nodeId: string): Node[] => {
+    // Find direct children
+    const directChildren = data.links
+      .filter(link => {
+        if (typeof link.source === 'object') {
+          return (link.source as any).id === nodeId;
+        }
+        return link.source === nodeId;
+      })
+      .map(link => {
+        if (typeof link.target === 'object') {
+          return (link.target as any).id;
+        }
+        return link.target;
+      });
+    
+    // Find nodes corresponding to these children
+    const childNodes = data.nodes.filter(node => 
+      directChildren.includes(node.id)
+    );
+    
+    // Recursively find descendants of each child
+    const allDescendants = [...childNodes];
+    childNodes.forEach(child => {
+      const descendants = findDescendantNodes(child.id);
+      allDescendants.push(...descendants);
+    });
+    
+    return allDescendants;
+  }, [data.links, data.nodes]);
+
+  // Add this function to handle starting the delete process
+  const handleStartDeletingTask = (node: Node) => {
+    // Find all descendant nodes that will also be deleted
+    const descendants = findDescendantNodes(node.id);
+    
+    setNodeToDelete(node);
+    setAffectedNodes(descendants);
+    setIsDeletingTask(true);
+    setActionMenuNode(null); // Close the action menu
+  };
+
+  // Add this function to handle confirming deletion
+  const handleConfirmDelete = () => {
+    if (!nodeToDelete || !onNodeUpdate) return;
+    
+    // Get all node IDs to delete (the node itself and all descendants)
+    const nodeIdsToDelete = [nodeToDelete.id, ...affectedNodes.map(node => node.id)];
+    
+    // Call onNodeUpdate with a special action to delete nodes
+    onNodeUpdate(nodeToDelete.id, {
+      __action: 'deleteNodes',
+      nodeIds: nodeIdsToDelete
+    } as any);
+    
+    // Close the modal
+    setIsDeletingTask(false);
+    setNodeToDelete(null);
+    setAffectedNodes([]);
+    
+    // If the deleted node was selected, clear the selection
+    if (selectedNodeId && nodeIdsToDelete.includes(selectedNodeId)) {
+      setSelectedNodeId(null);
+      setSelectedNode(null);
+    }
+  };
+
+  // Add this function to handle canceling deletion
+  const handleCancelDelete = () => {
+    setIsDeletingTask(false);
+    setNodeToDelete(null);
+    setAffectedNodes([]);
+  };
 
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
@@ -261,9 +576,9 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         }}
         linkColor={() => "#e2e8f0"}
         nodeRelSize={8} 
-        d3VelocityDecay={0.3}
-        d3AlphaDecay={0.02}
-        cooldownTime={3000}
+        d3VelocityDecay={0.2}
+        d3AlphaDecay={0.01}
+        cooldownTime={5000}
         onEngineStop={() => {
           // Fix nodes in place after simulation stops
           data.nodes.forEach(node => {
@@ -275,16 +590,29 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         onNodeRightClick={handleNodeRightClick}
         onNodeDrag={(node) => {
           // Keep the node fixed during drag
-          const typedNode = node as any;
+          const typedNode = node as Node;
           typedNode.fx = typedNode.x;
           typedNode.fy = typedNode.y;
+          
+          // Reheat the simulation for smooth interaction
+          fgRef.current?.d3ReheatSimulation();
         }}
         onNodeDragEnd={(node) => {
-          // Release the fixed position after drag
-          const typedNode = node as any;
-          typedNode.fx = undefined;
-          typedNode.fy = undefined;
-          fgRef.current?.d3ReheatSimulation();
+          // After drag ends, update the node in the data structure
+          const typedNode = node as Node;
+          
+          // Find the node in the data array and update it
+          const nodeIndex = data.nodes.findIndex(n => n.id === typedNode.id);
+          if (nodeIndex >= 0) {
+            // Update the node with its new position
+            data.nodes[nodeIndex].x = typedNode.x;
+            data.nodes[nodeIndex].y = typedNode.y;
+            data.nodes[nodeIndex].fx = typedNode.x;
+            data.nodes[nodeIndex].fy = typedNode.y;
+          }
+          
+          // Use the helper function to refresh the graph
+          setTimeout(refreshGraphWithLinks, 0);
         }}
         //linkDistance={250}           // Larger default link distance
         //linkStrength={0.4}          // Weaker default link strength
@@ -331,17 +659,17 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       
       {/* Node Actions Menu */}
       {actionMenuNode && (
-      <NodeActionsMenu
-        x={actionMenuNode.x}
-        y={actionMenuNode.y}
-        onAddTask={() => console.log('Add task')}
-        onDeleteTask={() => console.log('Delete task')}
-        onEditTask={() => console.log('Edit task')}
-        onChangeStatus={() => {
-          cycleNodeStatus(actionMenuNode.node.id);
-        }}
-      />
-    )}
+        <NodeActionsMenu
+          x={actionMenuNode.x}
+          y={actionMenuNode.y}
+          onAddTask={() => handleStartAddingTask(actionMenuNode.node)}
+          onDeleteTask={() => handleStartDeletingTask(actionMenuNode.node)}
+          onEditTask={() => handleStartEditingName(actionMenuNode.node)}
+          onChangeStatus={() => {
+            cycleNodeStatus(actionMenuNode.node.id);
+          }}
+        />
+      )}
       
       {/* Description Panel */}
       {selectedNode && showDescriptions && (
@@ -394,6 +722,112 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Name Editing Modal */}
+      {isEditingName && editingNode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-medium mb-4">Edit Task Name</h3>
+            <input
+              type="text"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleCancelEditName}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveName}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Task Modal */}
+      {isAddingTask && parentNode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-medium mb-4">Add Subtask to "{parentNode.name}"</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Task Name
+                </label>
+                <input
+                  type="text"
+                  value={newTaskName}
+                  onChange={(e) => setNewTaskName(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  placeholder="Enter task name"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <Textarea
+                  value={newTaskDescription}
+                  onChange={(e) => setNewTaskDescription(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded min-h-[100px]"
+                  placeholder="Enter task description (optional)"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={handleCancelAddTask}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveNewTask}
+                disabled={!newTaskName.trim()}
+              >
+                Add Task
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Task Confirmation Modal */}
+      {isDeletingTask && nodeToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[500px] shadow-xl">
+            <h3 className="text-lg font-medium mb-2">Delete Task</h3>
+            
+            {affectedNodes.length > 0 ? (
+              <div className="mb-4">
+                <p className="text-red-600 font-medium">Warning: This will also delete the following subtasks:</p>
+                <ul className="mt-2 max-h-[200px] overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                  {affectedNodes.map(node => (
+                    <li key={node.id} className="py-1 border-b border-gray-100 last:border-b-0">
+                      {node.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="mb-4">Are you sure you want to delete "{nodeToDelete.name}"?</p>
+            )}
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={handleCancelDelete}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete}>
+                Delete{affectedNodes.length > 0 ? ' All' : ''}
+              </Button>
+            </div>
           </div>
         </div>
       )}
