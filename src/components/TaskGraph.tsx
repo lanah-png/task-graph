@@ -56,6 +56,10 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [editingNode, setEditingNode] = useState<Node | null>(null);
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskName, setNewTaskName] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [parentNode, setParentNode] = useState<Node | null>(null);
   
 
   useEffect(() => {
@@ -395,6 +399,90 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     setEditingNode(null);
   };
 
+  // Add this function to handle starting the add task process
+  const handleStartAddingTask = (parentNode: Node) => {
+    setParentNode(parentNode);
+    setNewTaskName("");
+    setNewTaskDescription("");
+    setIsAddingTask(true);
+    setActionMenuNode(null); // Close the action menu
+  };
+
+  // Add this function to handle saving the new task
+  const handleSaveNewTask = () => {
+    if (!parentNode || !onNodeUpdate) return;
+    
+    // Generate a unique ID for the new task
+    const newTaskId = `task-${Date.now()}`;
+    
+    // Create the new task node
+    const newTask: Node = {
+      id: newTaskId,
+      name: newTaskName,
+      description: newTaskDescription,
+      val: 1,
+      status: 'notStarted',
+      // Position it near the parent node with a slight offset
+      x: (parentNode.x || 0) + 50,
+      y: (parentNode.y || 0) + 50,
+      fx: (parentNode.x || 0) + 50,
+      fy: (parentNode.y || 0) + 50
+    };
+    
+    // Create a new link from parent to the new task
+    const newLink: Link = {
+      source: parentNode.id,
+      target: newTaskId
+    };
+    
+    // Update the data with the new node and link
+    const updatedNodes = [...data.nodes, newTask];
+    const updatedLinks = [...data.links, newLink];
+    
+    // Call onNodeUpdate with a special action to add a new task
+    // This requires modifying the parent component to handle this special case
+    onNodeUpdate(parentNode.id, {
+      __action: 'addSubtask',
+      newTask,
+      newLink
+    } as any);
+    
+    // Close the modal
+    setIsAddingTask(false);
+    setParentNode(null);
+    
+    // Refresh the graph to ensure links are properly maintained
+    setTimeout(() => {
+      if (!fgRef.current) return;
+      
+      // Create a fresh copy of the data with proper link references
+      const refreshedData = {
+        nodes: updatedNodes,
+        links: updatedLinks
+      };
+      
+      // Ensure all links use string IDs
+      refreshedData.links.forEach(link => {
+        if (typeof link.source === 'object' && link.source !== null) {
+          link.source = (link.source as any).id || link.source;
+        }
+        if (typeof link.target === 'object' && link.target !== null) {
+          link.target = (link.target as any).id || link.target;
+        }
+      });
+      
+      // Update the graph with the refreshed data
+      (fgRef.current as any).graphData(refreshedData);
+      fgRef.current.d3ReheatSimulation();
+    }, 0);
+  };
+
+  // Add this function to handle canceling the add task process
+  const handleCancelAddTask = () => {
+    setIsAddingTask(false);
+    setParentNode(null);
+  };
+
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
       <ForceGraph2D
@@ -496,7 +584,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       <NodeActionsMenu
         x={actionMenuNode.x}
         y={actionMenuNode.y}
-        onAddTask={() => console.log('Add task')}
+        onAddTask={() => handleStartAddingTask(actionMenuNode.node)}
         onDeleteTask={() => console.log('Delete task')}
         onEditTask={() => handleStartEditingName(actionMenuNode.node)}
         onChangeStatus={() => {
@@ -578,6 +666,55 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
               </Button>
               <Button onClick={handleSaveName}>
                 Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Task Modal */}
+      {isAddingTask && parentNode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-medium mb-4">Add Subtask to "{parentNode.name}"</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Task Name
+                </label>
+                <input
+                  type="text"
+                  value={newTaskName}
+                  onChange={(e) => setNewTaskName(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  placeholder="Enter task name"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <Textarea
+                  value={newTaskDescription}
+                  onChange={(e) => setNewTaskDescription(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded min-h-[100px]"
+                  placeholder="Enter task description (optional)"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={handleCancelAddTask}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveNewTask}
+                disabled={!newTaskName.trim()}
+              >
+                Add Task
               </Button>
             </div>
           </div>
