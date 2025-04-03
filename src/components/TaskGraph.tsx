@@ -60,6 +60,9 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [parentNode, setParentNode] = useState<Node | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState<Node | null>(null);
+  const [affectedNodes, setAffectedNodes] = useState<Node[]>([]);
   
 
   useEffect(() => {
@@ -483,6 +486,81 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     setParentNode(null);
   };
 
+  // Fix the findDescendantNodes function
+  const findDescendantNodes = useCallback((nodeId: string): Node[] => {
+    // Find direct children
+    const directChildren = data.links
+      .filter(link => {
+        if (typeof link.source === 'object') {
+          return (link.source as any).id === nodeId;
+        }
+        return link.source === nodeId;
+      })
+      .map(link => {
+        if (typeof link.target === 'object') {
+          return (link.target as any).id;
+        }
+        return link.target;
+      });
+    
+    // Find nodes corresponding to these children
+    const childNodes = data.nodes.filter(node => 
+      directChildren.includes(node.id)
+    );
+    
+    // Recursively find descendants of each child
+    const allDescendants = [...childNodes];
+    childNodes.forEach(child => {
+      const descendants = findDescendantNodes(child.id);
+      allDescendants.push(...descendants);
+    });
+    
+    return allDescendants;
+  }, [data.links, data.nodes]);
+
+  // Add this function to handle starting the delete process
+  const handleStartDeletingTask = (node: Node) => {
+    // Find all descendant nodes that will also be deleted
+    const descendants = findDescendantNodes(node.id);
+    
+    setNodeToDelete(node);
+    setAffectedNodes(descendants);
+    setIsDeletingTask(true);
+    setActionMenuNode(null); // Close the action menu
+  };
+
+  // Add this function to handle confirming deletion
+  const handleConfirmDelete = () => {
+    if (!nodeToDelete || !onNodeUpdate) return;
+    
+    // Get all node IDs to delete (the node itself and all descendants)
+    const nodeIdsToDelete = [nodeToDelete.id, ...affectedNodes.map(node => node.id)];
+    
+    // Call onNodeUpdate with a special action to delete nodes
+    onNodeUpdate(nodeToDelete.id, {
+      __action: 'deleteNodes',
+      nodeIds: nodeIdsToDelete
+    } as any);
+    
+    // Close the modal
+    setIsDeletingTask(false);
+    setNodeToDelete(null);
+    setAffectedNodes([]);
+    
+    // If the deleted node was selected, clear the selection
+    if (selectedNodeId && nodeIdsToDelete.includes(selectedNodeId)) {
+      setSelectedNodeId(null);
+      setSelectedNode(null);
+    }
+  };
+
+  // Add this function to handle canceling deletion
+  const handleCancelDelete = () => {
+    setIsDeletingTask(false);
+    setNodeToDelete(null);
+    setAffectedNodes([]);
+  };
+
   return (
     <div ref={containerRef} className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100">
       <ForceGraph2D
@@ -581,17 +659,17 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       
       {/* Node Actions Menu */}
       {actionMenuNode && (
-      <NodeActionsMenu
-        x={actionMenuNode.x}
-        y={actionMenuNode.y}
-        onAddTask={() => handleStartAddingTask(actionMenuNode.node)}
-        onDeleteTask={() => console.log('Delete task')}
-        onEditTask={() => handleStartEditingName(actionMenuNode.node)}
-        onChangeStatus={() => {
-          cycleNodeStatus(actionMenuNode.node.id);
-        }}
-      />
-    )}
+        <NodeActionsMenu
+          x={actionMenuNode.x}
+          y={actionMenuNode.y}
+          onAddTask={() => handleStartAddingTask(actionMenuNode.node)}
+          onDeleteTask={() => handleStartDeletingTask(actionMenuNode.node)}
+          onEditTask={() => handleStartEditingName(actionMenuNode.node)}
+          onChangeStatus={() => {
+            cycleNodeStatus(actionMenuNode.node.id);
+          }}
+        />
+      )}
       
       {/* Description Panel */}
       {selectedNode && showDescriptions && (
@@ -715,6 +793,39 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
                 disabled={!newTaskName.trim()}
               >
                 Add Task
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Task Confirmation Modal */}
+      {isDeletingTask && nodeToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[500px] shadow-xl">
+            <h3 className="text-lg font-medium mb-2">Delete Task</h3>
+            
+            {affectedNodes.length > 0 ? (
+              <div className="mb-4">
+                <p className="text-red-600 font-medium">Warning: This will also delete the following subtasks:</p>
+                <ul className="mt-2 max-h-[200px] overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                  {affectedNodes.map(node => (
+                    <li key={node.id} className="py-1 border-b border-gray-100 last:border-b-0">
+                      {node.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="mb-4">Are you sure you want to delete "{nodeToDelete.name}"?</p>
+            )}
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={handleCancelDelete}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete}>
+                Delete{affectedNodes.length > 0 ? ' All' : ''}
               </Button>
             </div>
           </div>

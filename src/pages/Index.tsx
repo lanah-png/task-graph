@@ -134,7 +134,7 @@ const Index = () => {
     }
   };
   const handleNodeUpdate = (nodeId: string, updates: any) => {
-    // Check if this is a special "add subtask" action
+    // Check if this is a special action
     if (updates.__action === 'addSubtask') {
       // Extract the new task and link from the updates
       const { newTask, newLink } = updates;
@@ -143,6 +143,18 @@ const Index = () => {
       setGraphData(prevData => ({
         nodes: [...prevData.nodes, newTask],
         links: [...prevData.links, newLink]
+      }));
+    } else if (updates.__action === 'deleteNodes') {
+      // Extract the node IDs to delete
+      const { nodeIds } = updates;
+      
+      // Update the graph data to remove the nodes and their links
+      setGraphData(prevData => ({
+        nodes: prevData.nodes.filter(node => !nodeIds.includes(node.id)),
+        links: prevData.links.filter(link => 
+          !nodeIds.includes(typeof link.source === 'string' ? link.source : link.source.id) && 
+          !nodeIds.includes(typeof link.target === 'string' ? link.target : link.target.id)
+        )
       }));
     } else {
       // Handle regular node updates (status, name, description, etc.)
