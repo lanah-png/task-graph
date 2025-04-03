@@ -141,7 +141,7 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
     // Reset zoom and center with offset
     fg.centerAt(offsetX, 0, 1000);
-    fg.zoom(1, 1000);  // Even more zoomed out
+    fg.zoom(0.8, 1000);  // More zoomed out to see the whole graph
 
     // Release fixed positions
     data.nodes.forEach(node => {
@@ -149,15 +149,15 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       node.fy = undefined;
     });
 
-    // Set very strong repulsive forces and large link distances
-    fg.d3Force('charge')?.strength(-2000);  // Much stronger repulsion
+    // Set even stronger repulsive forces and larger link distances
+    fg.d3Force('charge')?.strength(-3000);  // Much stronger repulsion (was -2000)
     fg.d3Force('link')
-      ?.distance(300)     // Much larger distance
-      ?.strength(0.3);    // Even weaker links for more spread
+      ?.distance(400)     // Much larger distance (was 300)
+      ?.strength(0.2);    // Even weaker links for more spread (was 0.3)
 
     // Weaker center force
     fg.d3Force('center')
-      ?.strength(0.2);    // Very gentle centering force
+      ?.strength(0.1);    // Very gentle centering force (was 0.2)
     
     // Reheat the simulation with more energy
     fg.d3ReheatSimulation();
@@ -498,9 +498,9 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
         }}
         linkColor={() => "#e2e8f0"}
         nodeRelSize={8} 
-        d3VelocityDecay={0.3}
-        d3AlphaDecay={0.02}
-        cooldownTime={3000}
+        d3VelocityDecay={0.2}
+        d3AlphaDecay={0.01}
+        cooldownTime={5000}
         onEngineStop={() => {
           // Fix nodes in place after simulation stops
           data.nodes.forEach(node => {
