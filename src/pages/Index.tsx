@@ -48,19 +48,6 @@ const Index = () => {
     },
   ]);
 
-      // Add the function to call Firebase
-  const callHelloWorld = async () => {
-    try {
-      const helloWorld = httpsCallable(functions, 'hello_world');
-      const result = await helloWorld();
-      console.log(result.data); // This will show the response in an alert
-    } catch (error) {
-      console.error('Error calling function:', error);
-      alert('Error calling function. Check console for details.');
-    }
-  };
-
-
   const handleTaskSubmit = async (task: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -80,6 +67,7 @@ const Index = () => {
       
       // Make sure the response content is a string.
       const responseContent = result.data as AIResponse;
+      
       //interface TaskNode {
       // id: string
       // title: string
