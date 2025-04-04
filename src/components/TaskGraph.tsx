@@ -114,10 +114,11 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
       let maxConnections = 0;
       
       data.nodes.forEach(node => {
-        const connections = data.links.filter(link => 
-          (typeof link.source === 'string' ? link.source : link.source.id) === node.id ||
-          (typeof link.target === 'string' ? link.target : link.target.id) === node.id
-        ).length;
+        const connections = data.links.filter(link => {
+          const source = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const target = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          return source === node.id || target === node.id;
+        }).length;
         
         if (connections > maxConnections) {
           maxConnections = connections;
