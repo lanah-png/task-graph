@@ -79,6 +79,70 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg || data.nodes.length === 0) return;
+    
+    // Set balanced forces for initial layout
+    fg.d3Force('charge')?.strength(-800);  // Moderate repulsion
+    fg.d3Force('link')
+      ?.distance(200)      // Moderate distance
+      ?.strength(0.3);     // Moderate link strength
+    
+    // Stronger center force to keep nodes in view
+    fg.d3Force('center')
+      ?.strength(0.5);     // Stronger centering
+    
+    // Set initial zoom to ensure all nodes are visible
+    const nodeCount = data.nodes.length;
+    const zoomLevel = Math.max(0.8, Math.min(1.2, 2.5 / Math.sqrt(nodeCount)));
+    fg.zoom(zoomLevel, 1000);
+    
+    // Fix nodes in their positions after simulation has settled
+    setTimeout(() => {
+      data.nodes.forEach(node => {
+        if (node.x !== undefined && node.y !== undefined) {
+          node.fx = node.x;
+          node.fy = node.y;
+        }
+      });
+      fg.d3ReheatSimulation();
+      
+      // Find the main task node (usually the one with the most connections or specific ID)
+      // Option 1: Find node with most connections (likely the main task)
+      let mainNode = data.nodes[0]; // Default to first node
+      let maxConnections = 0;
+      
+      data.nodes.forEach(node => {
+        const connections = data.links.filter(link => 
+          (typeof link.source === 'string' ? link.source : link.source.id) === node.id ||
+          (typeof link.target === 'string' ? link.target : link.target.id) === node.id
+        ).length;
+        
+        if (connections > maxConnections) {
+          maxConnections = connections;
+          mainNode = node;
+        }
+      });
+      
+      // Option 2: If you know the main node has a specific ID (e.g., "main")
+      const mainNodeById = data.nodes.find(node => node.id === "main");
+      if (mainNodeById) {
+        mainNode = mainNodeById;
+      }
+      
+      // Calculate center offset based on chat state
+      const CHAT_WIDTH = 400;
+      const offsetX = isChatOpen ? +(CHAT_WIDTH / 5) : 0;
+      
+      // Center on the main node with offset
+      if (mainNode && mainNode.x !== undefined && mainNode.y !== undefined) {
+        fg.centerAt(mainNode.x + offsetX, mainNode.y, 1000);
+      }
+    }, 2500);
+    
+  }, [data, isChatOpen]);
+
   const handleNodeClick = useCallback((node: NodeObject) => {
     const fg = fgRef.current;
     if (!fg) return;
@@ -144,27 +208,14 @@ const TaskGraph = ({ data, showDescriptions = true, isChatOpen = false, onNodeUp
 
     // Reset zoom and center with offset
     fg.centerAt(offsetX, 0, 1000);
-    fg.zoom(0.8, 1000);  // More zoomed out to see the whole graph
+    fg.zoom(0.7, 1000);  // More zoomed out to see the whole graph
 
-    // Release fixed positions
-    data.nodes.forEach(node => {
-      node.fx = undefined;
-      node.fy = undefined;
-    });
-
-    // Set even stronger repulsive forces and larger link distances
-    fg.d3Force('charge')?.strength(-3000);  // Much stronger repulsion (was -2000)
-    fg.d3Force('link')
-      ?.distance(400)     // Much larger distance (was 300)
-      ?.strength(0.2);    // Even weaker links for more spread (was 0.3)
-
-    // Weaker center force
-    fg.d3Force('center')
-      ?.strength(0.1);    // Very gentle centering force (was 0.2)
+    // IMPORTANT: Don't change node positions at all
+    // This preserves the current layout
     
-    // Reheat the simulation with more energy
+    // Just reheat the simulation briefly
     fg.d3ReheatSimulation();
-  }, [isChatOpen, isEditing, data.nodes]);
+  }, [isChatOpen, isEditing]);
 
   const handleStartEditing = () => {
     if (selectedNode) {
