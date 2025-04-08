@@ -1,5 +1,6 @@
 from firebase_functions import https_fn
 from firebase_admin import initialize_app
+import os
 from LLM_Model import Base
 
 
