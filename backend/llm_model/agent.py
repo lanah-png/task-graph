@@ -48,7 +48,18 @@ class Agent:
             match result.trajectory[current_tool]:
                 case "create_task_node":
                     # Create a new task node
-                    node = result.trajectory[tool_result]
+                    node_data = result.trajectory[tool_result]
+
+                    # Parse if it's a string (JSON or dict representation)
+                    if isinstance(node_data, str):
+                        try:
+                            node = json.loads(node_data)
+                        except json.JSONDecodeError:
+                            # Try eval as fallback (for dict string representation)
+                            import ast
+                            node = ast.literal_eval(node_data)
+                    else:
+                        node = node_data
 
                     if len(graph_data["nodes"]) > 0 and node.get("parent_id"):
                         graph_data["links"].append({
@@ -95,7 +106,18 @@ class Agent:
             match result.trajectory[current_tool]:
                 case "create_task_node":
                     # Create a new task node
-                    node = result.trajectory[tool_result]
+                    node_data = result.trajectory[tool_result]
+
+                    # Parse if it's a string (JSON or dict representation)
+                    if isinstance(node_data, str):
+                        try:
+                            node = json.loads(node_data)
+                        except json.JSONDecodeError:
+                            # Try eval as fallback (for dict string representation)
+                            import ast
+                            node = ast.literal_eval(node_data)
+                    else:
+                        node = node_data
 
                     if len(graph_data["nodes"]) > 0 and node.get("parent_id"):
                         graph_data["links"].append({
