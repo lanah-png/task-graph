@@ -2,7 +2,12 @@ import os
 from .tools import tools, TaskBreakdownSignature
 import dspy
 import json
+import logging
 from typing import AsyncGenerator, Dict, Any
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 max_iters = 5
 
@@ -12,6 +17,12 @@ class Agent:
         api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is not set")
+
+        # Check if key is a placeholder
+        if 'your_openai_api_key_here' in api_key.lower() or 'sk-' not in api_key:
+            raise ValueError(f"OPENAI_API_KEY appears to be invalid. Please set a real OpenAI API key in backend/.env")
+
+        logger.info(f"Initializing Agent with OpenAI API key: {api_key[:10]}...")
 
         # Configure DSPy with OpenAI GPT-4o-mini
         dspy.configure(lm=dspy.LM('openai/gpt-4o-mini', api_key=api_key))
@@ -50,16 +61,30 @@ class Agent:
                     # Create a new task node
                     node_data = result.trajectory[tool_result]
 
+                    # Check if this is an error message
+                    if isinstance(node_data, str) and ("error" in node_data.lower() or "execution error" in node_data.lower()):
+                        logger.error(f"Tool execution failed: {node_data}")
+                        break
+
                     # Parse if it's a string (JSON or dict representation)
                     if isinstance(node_data, str):
                         try:
                             node = json.loads(node_data)
                         except json.JSONDecodeError:
                             # Try eval as fallback (for dict string representation)
-                            import ast
-                            node = ast.literal_eval(node_data)
+                            try:
+                                import ast
+                                node = ast.literal_eval(node_data)
+                            except (SyntaxError, ValueError) as e:
+                                logger.error(f"Failed to parse node data: {node_data}. Error: {e}")
+                                break
                     else:
                         node = node_data
+
+                    # Validate node has required fields
+                    if not isinstance(node, dict) or "id" not in node or "name" not in node:
+                        logger.error(f"Invalid node data: {node}")
+                        break
 
                     if len(graph_data["nodes"]) > 0 and node.get("parent_id"):
                         graph_data["links"].append({
@@ -108,16 +133,30 @@ class Agent:
                     # Create a new task node
                     node_data = result.trajectory[tool_result]
 
+                    # Check if this is an error message
+                    if isinstance(node_data, str) and ("error" in node_data.lower() or "execution error" in node_data.lower()):
+                        logger.error(f"Tool execution failed: {node_data}")
+                        break
+
                     # Parse if it's a string (JSON or dict representation)
                     if isinstance(node_data, str):
                         try:
                             node = json.loads(node_data)
                         except json.JSONDecodeError:
                             # Try eval as fallback (for dict string representation)
-                            import ast
-                            node = ast.literal_eval(node_data)
+                            try:
+                                import ast
+                                node = ast.literal_eval(node_data)
+                            except (SyntaxError, ValueError) as e:
+                                logger.error(f"Failed to parse node data: {node_data}. Error: {e}")
+                                break
                     else:
                         node = node_data
+
+                    # Validate node has required fields
+                    if not isinstance(node, dict) or "id" not in node or "name" not in node:
+                        logger.error(f"Invalid node data: {node}")
+                        break
 
                     if len(graph_data["nodes"]) > 0 and node.get("parent_id"):
                         graph_data["links"].append({
