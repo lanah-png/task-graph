@@ -38,13 +38,16 @@ services:
       - ./tsconfig.json:/app/tsconfig.json
       - ./tsconfig.app.json:/app/tsconfig.app.json
       - ./tsconfig.node.json:/app/tsconfig.node.json
-      # Prevent overwriting node_modules
-      - /app/node_modules
+      # Use named volume to preserve node_modules from the container
+      - node_modules:/app/node_modules
     depends_on:
       - backend
     restart: unless-stopped
     networks:
       - task-graph-network
+
+volumes:
+  node_modules:
 
 networks:
   task-graph-network:

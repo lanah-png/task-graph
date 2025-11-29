@@ -1,40 +1,20 @@
-# Frontend Dockerfile
-FROM node:20-alpine as build
+# Frontend Dockerfile for local development
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies
+# Install ALL dependencies (including dev dependencies)
 RUN npm ci
 
-# Copy source code
+# Copy the rest of the application
 COPY . .
 
-# Build the app
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies (for serving)
-RUN npm ci --only=production
-
-# Copy built assets from build stage
-COPY --from=build /app/dist ./dist
-
-# Install a simple server to serve the built files
-RUN npm install -g vite
-
-# Expose port
+# Expose Vite dev server port
 EXPOSE 5173
 
-# Start the dev server (for local development)
+# Start the dev server with host flag to allow external connections
 CMD ["npm", "run", "dev", "--", "--host"]
