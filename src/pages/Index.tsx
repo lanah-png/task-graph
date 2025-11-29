@@ -16,6 +16,15 @@ interface Message {
 
 interface AIResponse {
   message_response: string;
+  graph_data: {
+    nodes: Node[];
+    links: Link[];
+  };
+}
+
+interface Link {
+  source: string;
+  target: string;
 }
 
 interface Node {
@@ -63,7 +72,7 @@ const Index = () => {
       // Simulated API call
       const helloWorld = httpsCallable(functions, 'hello_world');
       // Send the updated chat history along with the new user message
-      const result = await helloWorld({ chatHistory: newMessages });
+      const result = await helloWorld({ chatHistory: newMessages, graph: graphData});
       
       // Make sure the response content is a string.
       const responseContent = result.data as AIResponse;
@@ -76,48 +85,49 @@ const Index = () => {
       // parentId?: string
       // childrenIds: string[]
       //}
-      const mockResponse = {
-        nodes: [ 
-          { 
-            id: "main", 
-            name: task, 
-            val: 20, 
-            color: "#8B5CF6",
-            status: 'notStarted',
-            description: "This is the main task that needs to be broken down. Click on the subtasks to see their specific descriptions."
-          },
-          { 
-            id: "sub1", 
-            name: "Subtask 1", 
-            val: 10, 
-            color: "#D946EF",
-            description: "One of the first components of the task that the user can address."
-          },
-          { 
-            id: "sub2", 
-            name: "Subtask 2", 
-            val: 10, 
-            color: "#F97316",
-            status: 'notStarted',
-            description: "Another example of one of the first components of the task that the user can address."
-          },
-          { 
-            id: "sub3", 
-            name: "Subtask 3", 
-            val: 10, 
-            color: "#0EA5E9",
-            status: 'notStarted',
-            description: "A third example of one of the first components of the task that the user can address."
-          },
-        ],
-        links: [
-          { source: "main", target: "sub1" },
-          { source: "main", target: "sub2" },
-          { source: "main", target: "sub3" },
-        ],
-      };
-
-      setGraphData(mockResponse);
+      
+      // {
+      //   nodes: [ 
+      //     { 
+      //       id: "main", 
+      //       name: task, 
+      //       val: 20, 
+      //       color: "#8B5CF6",
+      //       status: 'notStarted',
+      //       description: "This is the main task that needs to be broken down. Click on the subtasks to see their specific descriptions."
+      //     },
+      //     { 
+      //       id: "sub1", 
+      //       name: "Subtask 1", 
+      //       val: 10, 
+      //       color: "#D946EF",
+      //       description: "One of the first components of the task that the user can address."
+      //     },
+      //     { 
+      //       id: "sub2", 
+      //       name: "Subtask 2", 
+      //       val: 10, 
+      //       color: "#F97316",
+      //       status: 'notStarted',
+      //       description: "Another example of one of the first components of the task that the user can address."
+      //     },
+      //     { 
+      //       id: "sub3", 
+      //       name: "Subtask 3", 
+      //       val: 10, 
+      //       color: "#0EA5E9",
+      //       status: 'notStarted',
+      //       description: "A third example of one of the first components of the task that the user can address."
+      //     },
+      //   ],
+      //   links: [
+      //     { source: "main", target: "sub1" },
+      //     { source: "main", target: "sub2" },
+      //     { source: "main", target: "sub3" },
+      //   ],
+      // };
+      console.log("Graph data:", responseContent.graph_data);
+      setGraphData(responseContent.graph_data);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
