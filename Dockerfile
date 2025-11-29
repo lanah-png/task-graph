@@ -13,8 +13,8 @@ RUN npm ci
 # Copy the rest of the application
 COPY . .
 
-# Expose Vite dev server port
-EXPOSE 5173
+# Expose Vite dev server port (matches vite.config.ts)
+EXPOSE 8080
 
 # Start the dev server with host flag to allow external connections
 CMD ["npm", "run", "dev", "--", "--host"]
