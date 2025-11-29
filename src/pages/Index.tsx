@@ -3,23 +3,14 @@ import TaskGraph from "@/components/TaskGraph";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ChatInterface from "@/components/ui/chat-interface";
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { app, functions } from '@/firebase';
 import DescriptionToggle from "@/components/ui/descriptiontoggle";
+import { sendMessageStream, GraphData as APIGraphData } from "@/lib/api";
 
 interface Message {
   id: string;
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-}
-
-interface AIResponse {
-  message_response: string;
-  graph_data: {
-    nodes: Node[];
-    links: Link[];
-  };
 }
 
 interface Link {
@@ -68,77 +59,64 @@ const Index = () => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
 
-    try {
-      // Simulated API call
-      const helloWorld = httpsCallable(functions, 'hello_world');
-      // Send the updated chat history along with the new user message
-      const result = await helloWorld({ chatHistory: newMessages, graph: graphData});
-      
-      // Make sure the response content is a string.
-      const responseContent = result.data as AIResponse;
-      
-      //interface TaskNode {
-      // id: string
-      // title: string
-      // description: string
-      // status: 'new' | 'in-progress' | 'complete'
-      // parentId?: string
-      // childrenIds: string[]
-      //}
-      
-      // {
-      //   nodes: [ 
-      //     { 
-      //       id: "main", 
-      //       name: task, 
-      //       val: 20, 
-      //       color: "#8B5CF6",
-      //       status: 'notStarted',
-      //       description: "This is the main task that needs to be broken down. Click on the subtasks to see their specific descriptions."
-      //     },
-      //     { 
-      //       id: "sub1", 
-      //       name: "Subtask 1", 
-      //       val: 10, 
-      //       color: "#D946EF",
-      //       description: "One of the first components of the task that the user can address."
-      //     },
-      //     { 
-      //       id: "sub2", 
-      //       name: "Subtask 2", 
-      //       val: 10, 
-      //       color: "#F97316",
-      //       status: 'notStarted',
-      //       description: "Another example of one of the first components of the task that the user can address."
-      //     },
-      //     { 
-      //       id: "sub3", 
-      //       name: "Subtask 3", 
-      //       val: 10, 
-      //       color: "#0EA5E9",
-      //       status: 'notStarted',
-      //       description: "A third example of one of the first components of the task that the user can address."
-      //     },
-      //   ],
-      //   links: [
-      //     { source: "main", target: "sub1" },
-      //     { source: "main", target: "sub2" },
-      //     { source: "main", target: "sub3" },
-      //   ],
-      // };
-      console.log("Graph data:", responseContent.graph_data);
-      setGraphData(responseContent.graph_data);
+    // Create a placeholder assistant message that will be updated with streaming content
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      type: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: responseContent.message_response,
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
+    setMessages(prev => [...prev, assistantMessage]);
+
+    try {
+      // Convert messages to API format
+      const apiMessages = newMessages.map(msg => ({
+        id: msg.id,
+        type: msg.type,
+        content: msg.content,
+        timestamp: msg.timestamp.toISOString(),
+      }));
+
+      // Send streaming request
+      await sendMessageStream(
+        {
+          chatHistory: apiMessages,
+          graph: graphData,
+        },
+        // onToken: Append each token to the assistant message
+        (token: string) => {
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: msg.content + token }
+                : msg
+            )
+          );
+        },
+        // onGraphUpdate: Update the graph data
+        (updatedGraph: APIGraphData) => {
+          console.log("Graph data updated:", updatedGraph);
+          setGraphData(updatedGraph);
+        },
+        // onDone: Streaming complete
+        () => {
+          console.log("Streaming complete");
+        }
+      );
     } catch (error) {
       console.error("Error processing task:", error);
+
+      // Show error message to user
+      const errorMessage: Message = {
+        id: (Date.now() + 2).toString(),
+        type: 'assistant',
+        content: 'Sorry, there was an error processing your request. Please try again.',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
   const handleNodeUpdate = (nodeId: string, updates: any) => {
