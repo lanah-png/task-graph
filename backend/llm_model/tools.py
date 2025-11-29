@@ -1,9 +1,10 @@
 import dspy
 from dataclasses import dataclass
+from typing import Optional
 import json
 import datetime
 
-def create_task_node(task_name: str, task_description: str, parent_id: str = None) -> dict:
+def create_task_node(task_name: str, task_description: str, parent_id: Optional[str] = None) -> dict:
     """Create a new task node with an optional parent."""
     # Generate a unique node ID (e.g., using a timestamp or UUID)
     node_id = f"node_{datetime.datetime.now().timestamp()}"
